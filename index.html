@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>CSV to Campaigns Converter</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CSV to Campaigns Converter</h1>
+            <p class="subtitle">Transform your CSV data into campaign-ready format</p>
+        </header>
+
+        <section class="file-input-section">
+            <div class="drop-zone" id="dropZone">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p class="drop-text">Drag & drop your CSV file here</p>
+                <p class="drop-text-or">or</p>
+                <button class="btn-browse" id="browseBtn">Browse Files</button>
+                <input type="file" id="fileInput" accept=".csv" hidden>
+            </div>
+            <div class="file-info" id="fileInfo" style="display: none;">
+                <span class="file-name" id="fileName"></span>
+                <button class="btn-clear" id="clearFile">Clear</button>
+            </div>
+        </section>
+
+        <section class="options-section" id="optionsSection" style="display: none;">
+            <h2>Options</h2>
+            <div class="options-grid">
+                <div class="option-group">
+                    <label for="globalTags">Global Tags (comma separated)</label>
+                    <input type="text" id="globalTags" placeholder="e.g., Campaign2024, Newsletter">
+                </div>
+                <div class="option-group">
+                    <label for="sourceField">Source</label>
+                    <input type="text" id="sourceField" placeholder="Auto-filled from filename">
+                </div>
+                <div class="option-group checkbox-group">
+                    <input type="checkbox" id="includeExtra">
+                    <label for="includeExtra">Include unmapped input columns</label>
+                </div>
+            </div>
+        </section>
+
+        <section class="mapping-section" id="mappingSection" style="display: none;">
+            <h2>Field Mapping</h2>
+            <div class="mapping-container">
+                <div class="mapping-header">
+                    <div class="mapping-col-output">Output Field</div>
+                    <div class="mapping-col-input">Map to Input Column</div>
+                </div>
+                <div class="mapping-body" id="mappingBody"></div>
+            </div>
+        </section>
+
+        <section class="export-section" id="exportSection" style="display: none;">
+            <h2>Export</h2>
+            <div class="export-actions">
+                <button class="btn-primary" id="downloadNew">Download New CSV</button>
+                <div class="append-group">
+                    <button class="btn-secondary" id="appendExisting">Append to Existing CSV</button>
+                    <input type="file" id="existingFile" accept=".csv" hidden>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    opacity: 0.95;
+}
+
+section {
+    padding: 40px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+section:last-child {
+    border-bottom: none;
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: #1f2937;
+}
+
+.file-input-section {
+    background: #f9fafb;
+}
+
+.drop-zone {
+    border: 3px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 60px 40px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: white;
+    cursor: pointer;
+}
+
+.drop-zone:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.drop-zone.drag-over {
+    border-color: #667eea;
+    background: #f0f4ff;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    width: 64px;
+    height: 64px;
+    color: #667eea;
+    margin-bottom: 20px;
+}
+
+.drop-text {
+    font-size: 1.2rem;
+    color: #4b5563;
+    margin-bottom: 10px;
+}
+
+.drop-text-or {
+    font-size: 1rem;
+    color: #9ca3af;
+    margin: 20px 0;
+}
+
+.btn-browse {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-browse:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #667eea;
+}
+
+.file-name {
+    font-size: 1.1rem;
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.btn-clear {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-clear:hover {
+    background: #dc2626;
+}
+
+.options-section {
+    background: #fafafa;
+}
+
+.options-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.option-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.option-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.option-group input[type="text"] {
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.option-group input[type="text"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.checkbox-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    margin: 0;
+    cursor: pointer;
+}
+
+.mapping-section {
+    background: white;
+}
+
+.mapping-container {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.mapping-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.mapping-col-output,
+.mapping-col-input {
+    padding: 16px 20px;
+}
+
+.mapping-col-input {
+    border-left: 1px solid #e5e7eb;
+}
+
+.mapping-body {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.mapping-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #e5e7eb;
+    transition: background 0.2s ease;
+}
+
+.mapping-row:hover {
+    background: #f9fafb;
+}
+
+.mapping-row:last-child {
+    border-bottom: none;
+}
+
+.mapping-output,
+.mapping-input {
+    padding: 16px 20px;
+}
+
+.mapping-output {
+    font-weight: 500;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+}
+
+.mapping-input {
+    border-left: 1px solid #e5e7eb;
+}
+
+.mapping-input select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mapping-input select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.export-section {
+    background: #f9fafb;
+}
+
+.export-actions {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 16px 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: #10b981;
+    color: white;
+    flex: 1;
+    min-width: 200px;
+}
+
+.btn-primary:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-secondary {
+    background: #667eea;
+    color: white;
+    flex: 1;
+    min-width: 200px;
+}
+
+.btn-secondary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.append-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+
+    section {
+        padding: 20px;
+    }
+
+    .mapping-header,
+    .mapping-row {
+        grid-template-columns: 1fr;
+    }
+
+    .mapping-col-input,
+    .mapping-input {
+        border-left: none;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .export-actions {
+        flex-direction: column;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .append-group {
+        width: 100%;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

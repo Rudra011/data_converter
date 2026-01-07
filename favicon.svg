@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="15" fill="#4f46e5"/>
+  <path d="M30 35 L30 65 M50 35 L50 65 M70 35 L70 65 M25 45 L75 45 M25 55 L75 55" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <text x="50" y="85" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">CSV</text>
+</svg>
