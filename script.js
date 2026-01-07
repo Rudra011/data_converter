@@ -771,7 +771,31 @@ function autoMapFields() {
     fieldMapping = {};
     const outputFields = OUTPUT_PROFILES[currentProfile].fields;
 
+    // Special case: If both "Student" and "Parent" columns exist, map Parent to Full Name
+    const hasStudentColumn = inputHeaders.some(h => h.toLowerCase().trim() === 'student');
+    const parentColumn = inputHeaders.find(h => h.toLowerCase().trim() === 'parent');
+    
+    if (hasStudentColumn && parentColumn) {
+        // Map Parent column to full name fields
+        const fullNameFields = ['Full Name', 'full_name', 'name', 'Name', 'fn'];
+        for (let outputField of outputFields) {
+            const normalizedOutput = outputField.toLowerCase().replace(/[_\s]/g, '');
+            if (normalizedOutput === 'fullname' || normalizedOutput === 'name' || outputField === 'Full Name') {
+                fieldMapping[outputField] = {
+                    column: parentColumn,
+                    source: 'auto'
+                };
+                break;
+            }
+        }
+    }
+
     outputFields.forEach(outputField => {
+        // Skip if already mapped by special case above
+        if (fieldMapping[outputField]) {
+            return;
+        }
+        
         const rules = AUTO_MAP_RULES[outputField];
         if (rules) {
             for (let inputHeader of inputHeaders) {
