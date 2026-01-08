@@ -202,6 +202,16 @@ const filterMatchCount = document.getElementById('filterMatchCount');
 const filterOutputProfileSelect = document.getElementById('filterOutputProfile');
 const filterExportFormatSelect = document.getElementById('filterExportFormat');
 const builtInTagsContainer = document.getElementById('builtInTags');
+// Data Profile Report
+const dataProfileReport = document.getElementById('dataProfileReport');
+const showProfileReportBtn = document.getElementById('showProfileReport');
+const toggleProfileReportBtn = document.getElementById('toggleProfileReport');
+const profileReportSummary = document.getElementById('profileReportSummary');
+const profileReportFields = document.getElementById('profileReportFields');
+// Export History
+const exportHistory = document.getElementById('exportHistory');
+const exportHistoryList = document.getElementById('exportHistoryList');
+const clearHistoryBtn = document.getElementById('clearHistory');
 const previewRowCount = document.getElementById('previewRowCount');
 const previewViewMode = document.getElementById('previewViewMode');
 const previewContainer = document.getElementById('previewContainer');
@@ -289,6 +299,42 @@ darkModeToggle.addEventListener('click', () => {
     localStorage.setItem('darkMode', isDarkMode);
 });
 
+// Mobile menu toggle
+const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+const mobileMenuClose = document.getElementById('mobileMenuClose');
+const sidebar = document.getElementById('sidebar');
+
+if (mobileMenuToggle) {
+    mobileMenuToggle.addEventListener('click', () => {
+        sidebar.classList.add('mobile-open');
+    });
+}
+
+if (mobileMenuClose) {
+    mobileMenuClose.addEventListener('click', () => {
+        sidebar.classList.remove('mobile-open');
+    });
+}
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (sidebar && sidebar.classList.contains('mobile-open')) {
+        if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+            sidebar.classList.remove('mobile-open');
+        }
+    }
+});
+
+// Close mobile menu when step is selected
+sidebarSteps.forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+        }
+    });
+});
+
+
 function getActiveSheetMeta() {
     if (isMultiSheetExcel && excelSheets[currentSheetIndex]) {
         return excelSheets[currentSheetIndex];
@@ -335,6 +381,47 @@ function updateStepVisibility() {
         primaryActionBtn.textContent = 'Go to Export';
     }
     primaryActionBtn.disabled = !dataLoaded && !['upload','start'].includes(activeKey);
+    
+    // Update progress indicator
+    updateProgressIndicator();
+    
+    // Update contextual help
+    updateQuickHelp(activeKey);
+}
+
+// Progress indicator update
+function updateProgressIndicator() {
+    const progressFillSteps = document.getElementById('progressFillSteps');
+    const progressText = document.getElementById('progressText');
+    
+    if (progressFillSteps && progressText) {
+        // Calculate progress (start step doesn't count)
+        const realSteps = stepOrder.filter(s => s !== 'start');
+        const realIndex = Math.max(0, currentStepIndex - 1); // -1 because start doesn't count
+        const percentage = ((realIndex + 1) / realSteps.length) * 100;
+        
+        progressFillSteps.style.width = percentage + '%';
+        progressText.textContent = `Step ${realIndex + 1} of ${realSteps.length}`;
+    }
+}
+
+// Contextual help messages for each step
+const HELP_MESSAGES = {
+    'start': 'Choose whether to convert new data or filter existing data.',
+    'upload': 'Drop your CSV or Excel file here. All processing happens in your browser - your data never leaves your computer.',
+    'sheets': 'If your file has multiple sheets, select which ones to include and add sheet-specific tags.',
+    'mapping': 'Match your input columns to the output format. Use the auto-map button to speed things up!',
+    'options': 'Add tags, choose format, and enable smart features. Advanced options are collapsed by default.',
+    'preview': 'Review your transformed data before exporting. Toggle between transformed and raw views.',
+    'export': 'Download your data or view quality reports. Export history lets you re-download previous exports.',
+    'filter': 'Select tags to filter your data. Multiple tags use AND logic (must match all selected).'
+};
+
+function updateQuickHelp(stepKey) {
+    const quickHelpContent = document.getElementById('quickHelpContent');
+    if (quickHelpContent && HELP_MESSAGES[stepKey]) {
+        quickHelpContent.textContent = HELP_MESSAGES[stepKey];
+    }
 }
 
 function showStep(stepKey) {
@@ -2711,6 +2798,24 @@ function isOrganizationName(name) {
     return orgKeywords.some(k => lower.includes(k));
 }
 
+// List of common disposable/temporary email domains
+const DISPOSABLE_DOMAINS = [
+    'tempmail.com', 'guerrillamail.com', 'mailinator.com', '10minutemail.com',
+    'throwaway.email', 'getnada.com', 'temp-mail.org', 'maildrop.cc',
+    'trashmail.com', 'yopmail.com', 'fakeinbox.com', 'sharklasers.com'
+];
+
+// Common email typos
+const COMMON_EMAIL_TYPOS = {
+    'gmial.com': 'gmail.com',
+    'gmai.com': 'gmail.com',
+    'gmil.com': 'gmail.com',
+    'yahooo.com': 'yahoo.com',
+    'yaho.com': 'yahoo.com',
+    'outlok.com': 'outlook.com',
+    'hotmial.com': 'hotmail.com'
+};
+
 function detectIndividualEmail(email) {
     if (!email) return false;
     const lower = email.toLowerCase();
@@ -2732,8 +2837,75 @@ function cleanEmail(email) {
  */
 function isEmail(value) {
     if (!value || typeof value !== 'string') return false;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(value.trim());
+    const cleaned = value.trim().toLowerCase();
+    // More robust email regex
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    return emailRegex.test(cleaned);
+}
+
+/**
+ * Advanced email validation with quality scoring
+ * Returns: { valid, score, issues: [], suggestion }
+ */
+function validateEmail(email) {
+    const result = {
+        valid: false,
+        score: 0,
+        issues: [],
+        suggestion: null
+    };
+
+    if (!email || typeof email !== 'string') {
+        result.issues.push('Empty or invalid email');
+        return result;
+    }
+
+    const cleaned = email.trim().toLowerCase();
+    
+    // Basic syntax check
+    if (!isEmail(cleaned)) {
+        result.issues.push('Invalid email format');
+        return result;
+    }
+
+    result.valid = true;
+    result.score = 100;
+
+    const [local, domain] = cleaned.split('@');
+
+    // Check for typos in domain
+    if (COMMON_EMAIL_TYPOS[domain]) {
+        result.score -= 30;
+        result.issues.push(`Possible typo in domain`);
+        result.suggestion = `${local}@${COMMON_EMAIL_TYPOS[domain]}`;
+    }
+
+    // Check for disposable email
+    if (DISPOSABLE_DOMAINS.some(d => domain.includes(d))) {
+        result.score -= 40;
+        result.issues.push('Disposable/temporary email detected');
+    }
+
+    // Check for suspicious patterns
+    if (local.includes('test') || local.includes('fake') || local.includes('spam')) {
+        result.score -= 20;
+        result.issues.push('Test/fake email pattern detected');
+    }
+
+    // Check for very short local part
+    if (local.length < 3) {
+        result.score -= 10;
+        result.issues.push('Unusually short email address');
+    }
+
+    // Check for missing TLD
+    if (!domain.includes('.')) {
+        result.score -= 50;
+        result.issues.push('Domain missing TLD (.com, .org, etc.)');
+        result.valid = false;
+    }
+
+    return result;
 }
 
 /**
@@ -3407,31 +3579,37 @@ function downloadNewCSV() {
         const outputData = transformData();
         updateProgress(50, 100);
 
+        const filename = `campaigns_${new Date().getTime()}`;
+        
         if (format === 'csv') {
             showProgress('Generating CSV...', 75, 100);
             const csv = convertToCSV(outputData);
             showProgress('Downloading...', 100, 100);
-            const filename = `campaigns_${new Date().getTime()}.csv`;
-            downloadFile(csv, filename, 'text/csv;charset=utf-8;');
+            downloadFile(csv, filename + '.csv', 'text/csv;charset=utf-8;');
+            saveToExportHistory(filename + '.csv', 'csv', outputData.length, OUTPUT_PROFILES[currentProfile].name);
         } else if (format === 'xlsx') {
             showProgress('Generating XLSX...', 75, 100);
-            exportToXLSX(outputData);
+            exportToXLSX(outputData, filename + '.xlsx');
+            saveToExportHistory(filename + '.xlsx', 'xlsx', outputData.length, OUTPUT_PROFILES[currentProfile].name);
         } else if (format === 'json') {
             showProgress('Generating JSON...', 75, 100);
             const json = JSON.stringify(outputData, null, 2);
             showProgress('Downloading...', 100, 100);
-            const filename = `campaigns_${new Date().getTime()}.json`;
-            downloadFile(json, filename, 'application/json;charset=utf-8;');
+            downloadFile(json, filename + '.json', 'application/json;charset=utf-8;');
+            saveToExportHistory(filename + '.json', 'json', outputData.length, OUTPUT_PROFILES[currentProfile].name);
         }
 
-        setTimeout(hideProgress, 500);
+        setTimeout(() => {
+            hideProgress();
+            loadExportHistory();
+        }, 500);
     }, 50);
 }
 
 /**
  * Export data to XLSX format
  */
-function exportToXLSX(data) {
+function exportToXLSX(data, filename) {
     if (typeof XLSX === 'undefined') {
         alert('XLSX library not loaded. Please refresh the page and try again.');
         return;
@@ -3445,8 +3623,8 @@ function exportToXLSX(data) {
     XLSX.utils.book_append_sheet(wb, ws, "Campaigns");
 
     showProgress('Downloading...', 100, 100);
-    const filename = `campaigns_${new Date().getTime()}.xlsx`;
-    XLSX.writeFile(wb, filename);
+    const fname = filename || `campaigns_${new Date().getTime()}.xlsx`;
+    XLSX.writeFile(wb, fname);
 }
 
 /**
@@ -3544,4 +3722,516 @@ function appendToExistingCSV(existingCSV) {
     downloadCSV(csv, filename);
 
     existingFileInput.value = '';
+}
+// ===== FEATURE 2: DATA PROFILE REPORT =====
+
+// Show/hide profile report
+if (showProfileReportBtn) {
+    showProfileReportBtn.addEventListener('click', () => {
+        generateDataProfileReport();
+        dataProfileReport.style.display = 'block';
+        showProfileReportBtn.style.display = 'none';
+        loadExportHistory();
+    });
+}
+
+if (toggleProfileReportBtn) {
+    toggleProfileReportBtn.addEventListener('click', () => {
+        dataProfileReport.style.display = 'none';
+        showProfileReportBtn.style.display = 'inline-block';
+    });
+}
+
+function generateDataProfileReport() {
+    const data = previewMode === 'transformed' ? previewData : inputData;
+    const headers = previewMode === 'transformed' ? previewHeaders : inputHeaders;
+    
+    if (!data || data.length === 0) {
+        profileReportSummary.innerHTML = '<p>No data to analyze</p>';
+        return;
+    }
+
+    // Calculate summary statistics
+    const totalRows = data.length;
+    const totalFields = headers.length;
+    let totalEmptyCells = 0;
+    let totalValidEmails = 0;
+    let totalEmailFields = 0;
+    
+    headers.forEach(h => {
+        const lower = h.toLowerCase();
+        const isEmailCol = ['email', 'e-mail', 'mail'].some(k => lower.includes(k));
+        
+        data.forEach(row => {
+            const value = String(row[h] || '').trim();
+            if (!value) totalEmptyCells++;
+            
+            if (isEmailCol && value) {
+                totalEmailFields++;
+                const validation = validateEmail(value);
+                if (validation.valid && validation.score >= 70) totalValidEmails++;
+            }
+        });
+    });
+    
+    const completeness = Math.round(((totalRows * totalFields - totalEmptyCells) / (totalRows * totalFields)) * 100);
+    const emailQuality = totalEmailFields > 0 ? Math.round((totalValidEmails / totalEmailFields) * 100) : 0;
+
+    // Render summary cards
+    profileReportSummary.innerHTML = `
+        <div class="profile-stat-card">
+            <div class="profile-stat-label">Total Rows</div>
+            <div class="profile-stat-value">${totalRows.toLocaleString()}</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-label">Total Fields</div>
+            <div class="profile-stat-value">${totalFields}</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-label">Data Completeness</div>
+            <div class="profile-stat-value">${completeness}%</div>
+        </div>
+        <div class="profile-stat-card">
+            <div class="profile-stat-label">Email Quality</div>
+            <div class="profile-stat-value" style="color: ${emailQuality >= 80 ? 'var(--accent-success)' : emailQuality >= 60 ? 'var(--accent-warning)' : 'var(--accent-danger)'}">${emailQuality}%</div>
+        </div>
+    `;
+
+    // Render field-by-field analysis
+    profileReportFields.innerHTML = '';
+    headers.forEach(h => {
+        const lower = h.toLowerCase();
+        const isEmailCol = ['email', 'e-mail', 'mail'].some(k => lower.includes(k));
+        const isPhoneCol = ['phone', 'mobile', 'tel'].some(k => lower.includes(k));
+        
+        let filled = 0;
+        let valid = 0;
+        let unique = new Set();
+        let issues = [];
+        
+        data.forEach(row => {
+            const value = String(row[h] || '').trim();
+            if (value) {
+                filled++;
+                unique.add(value.toLowerCase());
+                
+                if (isEmailCol) {
+                    const validation = validateEmail(value);
+                    if (validation.valid && validation.score >= 70) valid++;
+                    if (validation.issues.length) issues.push(...validation.issues);
+                } else if (isPhoneCol) {
+                    if (isPhoneNumber(value)) valid++;
+                }
+            }
+        });
+        
+        const fillRate = Math.round((filled / totalRows) * 100);
+        const uniqueRate = Math.round((unique.size / filled) * 100) || 0;
+        const validRate = (isEmailCol || isPhoneCol) && filled > 0 ? Math.round((valid / filled) * 100) : null;
+        
+        const row = document.createElement('div');
+        row.className = 'profile-field-row';
+        
+        const fillClass = fillRate < 60 ? 'warn' : '';
+        const validClass = validRate !== null && validRate < 60 ? 'error' : '';
+        
+        row.innerHTML = `
+            <div class="profile-field-name">${h}</div>
+            <div class="profile-field-stat ${fillClass}">${fillRate}% filled</div>
+            <div class="profile-field-stat">${uniqueRate}% unique</div>
+            <div class="profile-field-stat ${validClass}">${validRate !== null ? validRate + '% valid' : '-'}</div>
+        `;
+        
+        profileReportFields.appendChild(row);
+    });
+}
+
+// ===== FEATURE 3: EXPORT HISTORY =====
+
+const MAX_EXPORT_HISTORY = 10;
+
+function saveToExportHistory(filename, format, rowCount, profile) {
+    const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+    
+    history.unshift({
+        filename,
+        format,
+        rowCount,
+        profile,
+        timestamp: new Date().toISOString(),
+        data: previewMode === 'transformed' ? previewData : transformData()
+    });
+    
+    // Keep only last N exports
+    if (history.length > MAX_EXPORT_HISTORY) {
+        history.splice(MAX_EXPORT_HISTORY);
+    }
+    
+    localStorage.setItem('exportHistory', JSON.stringify(history));
+}
+
+function loadExportHistory() {
+    const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+    
+    if (history.length === 0) {
+        exportHistory.style.display = 'none';
+        return;
+    }
+    
+    exportHistory.style.display = 'block';
+    exportHistoryList.innerHTML = '';
+    
+    history.forEach((item, index) => {
+        const date = new Date(item.timestamp);
+        const timeAgo = getTimeAgo(date);
+        
+        const historyItem = document.createElement('div');
+        historyItem.className = 'export-history-item';
+        historyItem.innerHTML = `
+            <div class="export-history-info">
+                <div class="export-history-name">${item.filename}</div>
+                <div class="export-history-meta">
+                    ${item.rowCount.toLocaleString()} rows • ${item.format.toUpperCase()} • ${item.profile} • ${timeAgo}
+                </div>
+            </div>
+            <div class="export-history-actions">
+                <button class="btn-ghost btn-small" onclick="redownloadExport(${index})">Re-download</button>
+                <button class="btn-ghost btn-small" onclick="deleteExportHistory(${index})">Delete</button>
+            </div>
+        `;
+        exportHistoryList.appendChild(historyItem);
+    });
+}
+
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+window.redownloadExport = function(index) {
+    const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+    const item = history[index];
+    
+    if (!item) return;
+    
+    const data = item.data;
+    const format = item.format;
+    
+    if (format === 'csv') {
+        const csv = convertToCSV(data);
+        downloadFile(csv, item.filename, 'text/csv;charset=utf-8;');
+    } else if (format === 'xlsx') {
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Campaigns');
+        XLSX.writeFile(wb, item.filename);
+    } else if (format === 'json') {
+        const json = JSON.stringify(data, null, 2);
+        downloadFile(json, item.filename, 'application/json;charset=utf-8;');
+    }
+    
+    showNotification(`Re-downloaded: ${item.filename}`);
+};
+
+window.deleteExportHistory = function(index) {
+    const history = JSON.parse(localStorage.getItem('exportHistory') || '[]');
+    history.splice(index, 1);
+    localStorage.setItem('exportHistory', JSON.stringify(history));
+    loadExportHistory();
+    showNotification('Export removed from history');
+};
+
+if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', () => {
+        if (confirm('Clear all export history?')) {
+            localStorage.removeItem('exportHistory');
+            loadExportHistory();
+            showNotification('Export history cleared');
+        }
+    });
+}
+
+// ===== FEATURE 4: SAVED WORKFLOWS =====
+
+function saveCurrentWorkflow() {
+    const name = prompt('Enter a name for this workflow:');
+    if (!name || !name.trim()) return;
+    
+    const workflow = {
+        name: name.trim(),
+        profile: currentProfile,
+        fieldMapping: JSON.parse(JSON.stringify(fieldMapping)),
+        globalTags: globalTagsInput.value,
+        source: sourceFieldInput.value,
+        quickTags: getSelectedBuiltInTags(),
+        options: {
+            includeExtra: includeExtraCheckbox.checked,
+            autoInferCompany: autoInferCompanyCheckbox.checked,
+            autoInferTitle: autoInferTitleCheckbox.checked,
+            classifyContacts: classifyContactsCheckbox.checked,
+            smartColumnParsing: smartColumnParsingCheckbox.checked,
+            consolidateColumns: consolidateColumnsCheckbox.checked,
+            duplicateHandling: document.querySelector('input[name="duplicateHandling"]:checked')?.value || 'keep'
+        },
+        exportFormat: exportFormatSelect.value,
+        timestamp: new Date().toISOString()
+    };
+    
+    const workflows = JSON.parse(localStorage.getItem('savedWorkflows') || '[]');
+    
+    const existingIndex = workflows.findIndex(w => w.name === workflow.name);
+    if (existingIndex >= 0) {
+        if (!confirm(`Workflow "${workflow.name}" exists. Overwrite?`)) return;
+        workflows[existingIndex] = workflow;
+    } else {
+        workflows.push(workflow);
+    }
+    
+    localStorage.setItem('savedWorkflows', JSON.stringify(workflows));
+    loadWorkflowsDropdown();
+    showNotification(`Workflow "${workflow.name}" saved!`);
+}
+
+function loadWorkflowsDropdown() {
+    const workflows = JSON.parse(localStorage.getItem('savedWorkflows') || '[]');
+    const select = document.getElementById('workflowSelect');
+    
+    if (select) {
+        select.innerHTML = '<option value="">-- Load Workflow --</option>';
+        workflows.forEach((wf, idx) => {
+            const option = document.createElement('option');
+            option.value = idx;
+            option.textContent = `${wf.name} (${wf.profile})`;
+            select.appendChild(option);
+        });
+    }
+}
+
+function loadWorkflow(index) {
+    const workflows = JSON.parse(localStorage.getItem('savedWorkflows') || '[]');
+    const workflow = workflows[index];
+    
+    if (!workflow) return;
+    
+    // Restore profile
+    currentProfile = workflow.profile;
+    outputProfileSelect.value = currentProfile;
+    if (filterOutputProfileSelect) filterOutputProfileSelect.value = currentProfile;
+    updateProfileFieldCount();
+    
+    // Restore mapping
+    fieldMapping = JSON.parse(JSON.stringify(workflow.fieldMapping));
+    renderMapping();
+    
+    // Restore options
+    globalTagsInput.value = workflow.globalTags || '';
+    sourceFieldInput.value = workflow.source || '';
+    
+    // Restore quick tags
+    if (builtInTagsContainer && workflow.quickTags) {
+        const checkboxes = builtInTagsContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            cb.checked = workflow.quickTags.includes(cb.value);
+        });
+    }
+    
+    // Restore option checkboxes
+    if (workflow.options) {
+        includeExtraCheckbox.checked = workflow.options.includeExtra;
+        autoInferCompanyCheckbox.checked = workflow.options.autoInferCompany;
+        autoInferTitleCheckbox.checked = workflow.options.autoInferTitle;
+        classifyContactsCheckbox.checked = workflow.options.classifyContacts;
+        smartColumnParsingCheckbox.checked = workflow.options.smartColumnParsing;
+        consolidateColumnsCheckbox.checked = workflow.options.consolidateColumns;
+        
+        const dupRadio = document.querySelector(`input[name="duplicateHandling"][value="${workflow.options.duplicateHandling}"]`);
+        if (dupRadio) dupRadio.checked = true;
+    }
+    
+    // Restore export format
+    if (workflow.exportFormat) {
+        exportFormatSelect.value = workflow.exportFormat;
+    }
+    
+    refreshPreview();
+    showNotification(`Workflow "${workflow.name}" loaded!`);
+}
+
+// Add workflow UI to Options section (will need HTML too)
+const saveWorkflowBtn = document.getElementById('saveWorkflow');
+const workflowSelect = document.getElementById('workflowSelect');
+
+if (saveWorkflowBtn) {
+    saveWorkflowBtn.addEventListener('click', saveCurrentWorkflow);
+}
+
+if (workflowSelect) {
+    workflowSelect.addEventListener('change', (e) => {
+        if (e.target.value !== '') {
+            loadWorkflow(parseInt(e.target.value));
+            setTimeout(() => e.target.value = '', 100);
+        }
+    });
+}
+
+loadWorkflowsDropdown();
+
+// ===== FEATURE 5: BULK FIND & REPLACE =====
+
+let bulkReplaceModal = null;
+
+function showBulkReplaceModal() {
+    if (!bulkReplaceModal) {
+        bulkReplaceModal = document.createElement('div');
+        bulkReplaceModal.className = 'bulk-replace-modal';
+        bulkReplaceModal.innerHTML = `
+            <div class="bulk-replace-content">
+                <div class="bulk-replace-header">
+                    <h3>🔍 Bulk Find & Replace</h3>
+                    <button class="btn-ghost btn-small" onclick="closeBulkReplace()">✕</button>
+                </div>
+                <div class="bulk-replace-body">
+                    <div class="bulk-replace-field">
+                        <label for="replaceColumn">Column</label>
+                        <select id="replaceColumn" class="profile-select"></select>
+                    </div>
+                    <div class="bulk-replace-field">
+                        <label for="replacefindText">Find</label>
+                        <input type="text" id="replaceFindText" placeholder="Text to find">
+                        <label class="bulk-replace-option">
+                            <input type="checkbox" id="replaceRegex">
+                            <span>Use Regular Expression</span>
+                        </label>
+                        <label class="bulk-replace-option">
+                            <input type="checkbox" id="replaceCaseSensitive">
+                            <span>Case Sensitive</span>
+                        </label>
+                    </div>
+                    <div class="bulk-replace-field">
+                        <label for="replaceWithText">Replace With</label>
+                        <input type="text" id="replaceWithText" placeholder="Replacement text">
+                    </div>
+                    <div class="bulk-replace-preview" id="replacePreview"></div>
+                </div>
+                <div class="bulk-replace-footer">
+                    <button class="btn-secondary" onclick="previewBulkReplace()">Preview</button>
+                    <button class="btn-primary" onclick="applyBulkReplace()">Apply</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(bulkReplaceModal);
+        
+        // Populate column dropdown
+        const columnSelect = document.getElementById('replaceColumn');
+        inputHeaders.forEach(h => {
+            const option = document.createElement('option');
+            option.value = h;
+            option.textContent = h;
+            columnSelect.appendChild(option);
+        });
+    }
+    
+    bulkReplaceModal.style.display = 'flex';
+}
+
+window.closeBulkReplace = function() {
+    if (bulkReplaceModal) bulkReplaceModal.style.display = 'none';
+};
+
+window.previewBulkReplace = function() {
+    const column = document.getElementById('replaceColumn').value;
+    const findText = document.getElementById('replaceFindText').value;
+    const replaceWith = document.getElementById('replaceWithText').value;
+    const useRegex = document.getElementById('replaceRegex').checked;
+    const caseSensitive = document.getElementById('replaceCaseSensitive').checked;
+    
+    if (!column || !findText) {
+        alert('Please select a column and enter text to find');
+        return;
+    }
+    
+    let matches = 0;
+    const preview = [];
+    
+    inputData.slice(0, 10).forEach((row, idx) => {
+        const value = String(row[column] || '');
+        let pattern;
+        
+        if (useRegex) {
+            try {
+                pattern = new RegExp(findText, caseSensitive ? 'g' : 'gi');
+            } catch (e) {
+                alert('Invalid regular expression');
+                return;
+            }
+        } else {
+            const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            pattern = new RegExp(escapedFind, caseSensitive ? 'g' : 'gi');
+        }
+        
+        if (pattern.test(value)) {
+            matches++;
+            const newValue = value.replace(pattern, replaceWith);
+            preview.push(`Row ${idx + 1}: "${value}" → "${newValue}"`);
+        }
+    });
+    
+    const previewEl = document.getElementById('replacePreview');
+    previewEl.innerHTML = `
+        <strong>${matches} matches found in first 10 rows</strong>
+        <div style="margin-top: 8px; max-height: 200px; overflow-y: auto; font-size: 0.9rem;">
+            ${preview.map(p => `<div style="margin: 4px 0;">${p}</div>`).join('')}
+        </div>
+    `;
+};
+
+window.applyBulkReplace = function() {
+    const column = document.getElementById('replaceColumn').value;
+    const findText = document.getElementById('replaceFindText').value;
+    const replaceWith = document.getElementById('replaceWithText').value;
+    const useRegex = document.getElementById('replaceRegex').checked;
+    const caseSensitive = document.getElementById('replaceCaseSensitive').checked;
+    
+    if (!column || !findText) {
+        alert('Please select a column and enter text to find');
+        return;
+    }
+    
+    let pattern;
+    
+    if (useRegex) {
+        try {
+            pattern = new RegExp(findText, caseSensitive ? 'g' : 'gi');
+        } catch (e) {
+            alert('Invalid regular expression');
+            return;
+        }
+    } else {
+        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        pattern = new RegExp(escapedFind, caseSensitive ? 'g' : 'gi');
+    }
+    
+    let replacements = 0;
+    inputData.forEach(row => {
+        const value = String(row[column] || '');
+        if (pattern.test(value)) {
+            row[column] = value.replace(pattern, replaceWith);
+            replacements++;
+        }
+    });
+    
+    closeBulkReplace();
+    showNotification(`Replaced ${replacements} occurrences`);
+    refreshPreview();
+};
+
+const bulkReplaceBtn = document.getElementById('bulkReplace');
+if (bulkReplaceBtn) {
+    bulkReplaceBtn.addEventListener('click', showBulkReplaceModal);
 }

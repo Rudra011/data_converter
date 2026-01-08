@@ -17,9 +17,22 @@
     </div>
 
     <div class="app-shell">
-        <aside class="sidebar">
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h1>CSV to Campaigns</h1>
+                <h1>CSV Converter</h1>
+                <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Close menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
                 <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
                     <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="5"></circle>
@@ -37,15 +50,48 @@
                     </svg>
                 </button>
             </div>
+            <div class="progress-indicator" id="progressIndicator">
+                <div class="progress-bar-steps">
+                    <div class="progress-fill-steps" id="progressFillSteps"></div>
+                </div>
+                <span class="progress-text" id="progressText">Step 1 of 7</span>
+            </div>
             <nav class="sidebar-steps" id="sidebarSteps">
-                <button class="sidebar-step active" data-step="upload">1. Upload</button>
-                <button class="sidebar-step" data-step="sheets">2. Sheets & Tags</button>
-                <button class="sidebar-step" data-step="mapping">3. Mapping</button>
-                <button class="sidebar-step" data-step="options">4. Options</button>
-                <button class="sidebar-step" data-step="preview">5. Preview</button>
-                <button class="sidebar-step" data-step="export">6. Export</button>
-                <button class="sidebar-step" data-step="filter">7. Filter</button>
+                <button class="sidebar-step active" data-step="upload">
+                    <span class="step-icon">📁</span>
+                    <span class="step-label">Upload File</span>
+                </button>
+                <button class="sidebar-step" data-step="sheets">
+                    <span class="step-icon">📊</span>
+                    <span class="step-label">Configure Sheets</span>
+                </button>
+                <button class="sidebar-step" data-step="mapping">
+                    <span class="step-icon">🔗</span>
+                    <span class="step-label">Map Fields</span>
+                </button>
+                <button class="sidebar-step" data-step="options">
+                    <span class="step-icon">⚙️</span>
+                    <span class="step-label">Options</span>
+                </button>
+                <button class="sidebar-step" data-step="preview">
+                    <span class="step-icon">👁️</span>
+                    <span class="step-label">Preview Data</span>
+                </button>
+                <button class="sidebar-step" data-step="export">
+                    <span class="step-icon">💾</span>
+                    <span class="step-label">Export</span>
+                </button>
+                <button class="sidebar-step" data-step="filter">
+                    <span class="step-icon">🔍</span>
+                    <span class="step-label">Filter Data</span>
+                </button>
             </nav>
+            <div class="quick-help" id="quickHelp">
+                <div class="quick-help-header">💡 Quick Tip</div>
+                <div class="quick-help-content" id="quickHelpContent">
+                    Upload your CSV or Excel file to get started.
+                </div>
+            </div>
         </aside>
 
         <div class="main-area">
@@ -72,20 +118,35 @@
             <div class="content-area">
                 <section class="step-panel" id="step-start">
                     <div class="start-panel">
-                        <h2>What would you like to do?</h2>
+                        <div class="welcome-section">
+                            <h1 class="welcome-title">Welcome to CSV Converter</h1>
+                            <p class="welcome-subtitle">Transform your contact data in 3 easy steps</p>
+                        </div>
                         <div class="start-cards">
-                            <button class="start-card" id="startConvert">
-                                <div class="start-card-title">CSV/XLSX → Campaigns</div>
-                                <div class="start-card-sub">Upload a file, map fields, preview, and export.</div>
+                            <button class="start-card primary-flow" id="startConvert">
+                                <div class="start-card-icon">📊</div>
+                                <div class="start-card-title">Convert & Export</div>
+                                <div class="start-card-sub">Transform CSV/Excel files for CRM platforms</div>
+                                <div class="start-card-badge">Most Popular</div>
                             </button>
                             <button class="start-card" id="startFilter">
-                                <div class="start-card-title">Filter Master</div>
-                                <div class="start-card-sub">Upload a dataset, pick tags/sources, and download a filtered file.</div>
+                                <div class="start-card-icon">🔍</div>
+                                <div class="start-card-title">Filter & Extract</div>
+                                <div class="start-card-sub">Filter existing data by tags and sources</div>
                             </button>
+                        </div>
+                        <div class="features-list">
+                            <div class="feature-item">✓ 100% client-side processing</div>
+                            <div class="feature-item">✓ No data leaves your browser</div>
+                            <div class="feature-item">✓ Supports CSV, XLSX, and XLS</div>
                         </div>
                     </div>
                 </section>
                 <section class="step-panel" id="step-upload">
+                    <div class="step-header">
+                        <h2>Upload Your Data File</h2>
+                        <p class="step-description">Support for CSV, XLSX, and XLS formats up to 100MB</p>
+                    </div>
                     <div class="file-input-section">
                         <div class="drop-zone" id="dropZone">
                             <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -116,6 +177,10 @@
                 </section>
 
                 <section class="step-panel" id="step-sheets" style="display:none;">
+                    <div class="step-header">
+                        <h2>Configure Sheets & Tags</h2>
+                        <p class="step-description">Select sheets to process and add sheet-specific tags</p>
+                    </div>
                     <div class="sheet-tags-section" id="sheetTagsSection" style="display: none;">
                         <div class="sheet-tags-header">
                             <div>
@@ -134,10 +199,13 @@
                 </section>
 
                 <section class="step-panel" id="step-mapping" style="display:none;">
+                    <div class="step-header">
+                        <h2>Map Your Fields</h2>
+                        <p class="step-description">Connect your input columns to the output format. Use Auto-Map for quick setup.</p>
+                    </div>
                     <div class="mapping-section" id="mappingSection" style="display: none;">
                         <div class="mapping-header-bar">
                             <div class="mapping-title-group">
-                                <h2>Field Mapping</h2>
                                 <div class="sheet-selector-wrapper" id="sheetSelectorWrapper" style="display: none;">
                                     <label for="sheetSelector">Mapping for:</label>
                                     <select id="sheetSelector" class="sheet-selector"></select>
@@ -234,6 +302,18 @@
                         <div class="options-header-bar">
                             <h2>Options</h2>
                             <div class="options-controls">
+                                <button class="btn-secondary btn-small" id="bulkReplace">Find & Replace</button>
+                                <select id="workflowSelect" class="preset-select">
+                                    <option value="">-- Load Workflow --</option>
+                                </select>
+                                <button class="btn-preset-save" id="saveWorkflow" title="Save complete workflow">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                        <polyline points="7 3 7 8 15 8"></polyline>
+                                    </svg>
+                                    Save Workflow
+                                </button>
                                 <button class="btn-undo" id="undoBtn" title="Undo last change" disabled>
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M3 7v6h6"></path>
@@ -277,92 +357,160 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="options-grid">
-                            <div class="option-group">
-                                <label for="outputProfile">Output Format:</label>
-                                <select id="outputProfile" class="profile-select">
-                                    <option value="zoho_campaigns">Zoho Campaigns</option>
-                                    <option value="zoho_crm">Zoho CRM (Leads)</option>
-                                    <option value="zoho_crm_contacts">Zoho CRM (Contacts)</option>
-                                    <option value="master_data">Master Data (Complete)</option>
-                                    <option value="simple">Simple (Name, Email, Phone)</option>
-                                    <option value="meta_ads">Meta/Facebook Ads Customer List</option>
-                                </select>
-                                <span class="profile-field-count" id="profileFieldCount">20 fields</span>
-                            </div>
-                            <div class="option-group">
-                                <label for="globalTags">Global Tags (comma separated)</label>
-                                <input type="text" id="globalTags" placeholder="e.g., Event, VIP">
-                            </div>
-                            <div class="option-group">
-                                <label>Quick Tags</label>
-                                <div class="checkbox-group" id="builtInTags">
-                                    <label class="radio-label"><input type="checkbox" value="History"> <span>History</span></label>
-                                    <label class="radio-label"><input type="checkbox" value="Science"> <span>Science</span></label>
-                                    <label class="radio-label"><input type="checkbox" value="Culture"> <span>Culture</span></label>
-                                    <label class="radio-label"><input type="checkbox" value="Communication"> <span>Communication</span></label>
-                                    <label class="radio-label"><input type="checkbox" value="Promotions"> <span>Promotions</span></label>
+                        
+                        <!-- Essential Options -->
+                        <div class="options-section-card">
+                            <h3 class="options-section-title">
+                                <span class="section-icon">🎯</span>
+                                Essential Settings
+                            </h3>
+                            <div class="options-grid">
+                                <div class="option-group">
+                                    <label for="outputProfile">
+                                        Output Format
+                                        <span class="info-icon" title="Choose the format that matches your CRM or marketing platform">ℹ️</span>
+                                    </label>
+                                    <select id="outputProfile" class="profile-select">
+                                        <option value="zoho_campaigns">Zoho Campaigns</option>
+                                        <option value="zoho_crm">Zoho CRM (Leads)</option>
+                                        <option value="zoho_crm_contacts">Zoho CRM (Contacts)</option>
+                                        <option value="master_data">Master Data (Complete)</option>
+                                        <option value="simple">Simple (Name, Email, Phone)</option>
+                                        <option value="meta_ads">Meta/Facebook Ads Customer List</option>
+                                    </select>
+                                    <span class="profile-field-count" id="profileFieldCount">20 fields</span>
                                 </div>
-                                <small>Selected quick tags will be added to every row.</small>
-                            </div>
-                            <div class="option-group">
-                                <label for="sourceField">Source</label>
-                                <input type="text" id="sourceField" placeholder="e.g., Campaign Name">
-                            </div>
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="includeExtra">
-                                <label for="includeExtra">Include unmapped input columns</label>
-                            </div>
-                            <div class="option-group">
-                                <label>Handle Duplicates:</label>
-                                <div class="radio-group">
-                                    <label class="radio-label">
-                                        <input type="radio" name="duplicateHandling" value="keep" checked>
-                                        <span>Keep</span>
+                                <div class="option-group">
+                                    <label for="globalTags">
+                                        Global Tags
+                                        <span class="info-icon" title="These tags will be added to every contact">ℹ️</span>
                                     </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="duplicateHandling" value="drop">
-                                        <span>Drop duplicates</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="duplicateHandling" value="mark">
-                                        <span>Mark with tag</span>
-                                    </label>
+                                    <input type="text" id="globalTags" placeholder="e.g., Event, VIP, Q1-2026">
+                                    <small class="field-hint">Comma-separated tags applied to all contacts</small>
                                 </div>
-                                <span class="duplicate-count" id="duplicateCount"></span>
+                                <div class="option-group">
+                                    <label>
+                                        Quick Tags
+                                        <span class="info-icon" title="Pre-defined tags for common categories">ℹ️</span>
+                                    </label>
+                                    <div class="checkbox-group" id="builtInTags">
+                                        <label class="radio-label"><input type="checkbox" value="History"> <span>History</span></label>
+                                        <label class="radio-label"><input type="checkbox" value="Science"> <span>Science</span></label>
+                                        <label class="radio-label"><input type="checkbox" value="Culture"> <span>Culture</span></label>
+                                        <label class="radio-label"><input type="checkbox" value="Communication"> <span>Communication</span></label>
+                                        <label class="radio-label"><input type="checkbox" value="Promotions"> <span>Promotions</span></label>
+                                    </div>
+                                    <small class="field-hint">Select categories to tag all contacts</small>
+                                </div>
+                                <div class="option-group">
+                                    <label for="sourceField">
+                                        Source
+                                        <span class="info-icon" title="Track where these contacts came from">ℹ️</span>
+                                    </label>
+                                    <input type="text" id="sourceField" placeholder="e.g., Website Form, Trade Show">
+                                    <small class="field-hint">Optional: Track the origin of contacts</small>
+                                </div>
                             </div>
                         </div>
 
-                        <h3 class="options-subtitle">Intelligence</h3>
-                        <div class="options-grid">
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="autoInferCompany" checked>
-                                <label for="autoInferCompany">Auto-infer company from email domain</label>
+                        <!-- Additional Options Collapsible -->
+                        <details class="advanced-section" open>
+                            <summary class="advanced-section-toggle">
+                                <span class="toggle-icon">▼</span>
+                                <span class="section-title">Additional Options</span>
+                            </summary>
+                            <div class="advanced-section-content">
+                                <div class="options-grid">
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="includeExtra">
+                                        <label for="includeExtra">
+                                            Include unmapped columns
+                                            <span class="info-icon" title="Add any columns from input that weren't explicitly mapped">ℹ️</span>
+                                        </label>
+                                    </div>
+                                    <div class="option-group">
+                                        <label>
+                                            Duplicate Handling
+                                            <span class="info-icon" title="Choose how to handle duplicate email addresses">ℹ️</span>
+                                        </label>
+                                        <div class="radio-group">
+                                            <label class="radio-label">
+                                                <input type="radio" name="duplicateHandling" value="keep" checked>
+                                                <span>Keep all</span>
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="duplicateHandling" value="drop">
+                                                <span>Remove duplicates</span>
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="duplicateHandling" value="mark">
+                                                <span>Mark as duplicate</span>
+                                            </label>
+                                        </div>
+                                        <span class="duplicate-count" id="duplicateCount"></span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="autoInferTitle" checked>
-                                <label for="autoInferTitle">Auto-infer job title from email</label>
+                        </details>
+
+                        <!-- Intelligence Features Collapsible -->
+                        <details class="advanced-section">
+                            <summary class="advanced-section-toggle">
+                                <span class="toggle-icon">▼</span>
+                                <span class="section-title">🧠 Smart Features</span>
+                                <span class="section-badge">Advanced</span>
+                            </summary>
+                            <div class="advanced-section-content">
+                                <p class="section-description">These AI-powered features automatically enhance and enrich your data</p>
+                                <div class="options-grid">
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="autoInferCompany" checked>
+                                        <label for="autoInferCompany">
+                                            Auto-detect company name
+                                            <span class="info-icon" title="Extracts company name from email domain (e.g., john@acme.com → Acme)">ℹ️</span>
+                                        </label>
+                                    </div>
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="autoInferTitle" checked>
+                                        <label for="autoInferTitle">
+                                            Detect job titles
+                                            <span class="info-icon" title="Identifies job titles in email addresses (e.g., ceo@company.com → CEO)">ℹ️</span>
+                                        </label>
+                                    </div>
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="classifyContacts" checked>
+                                        <label for="classifyContacts">
+                                            Classify contact type
+                                            <span class="info-icon" title="Tags contacts as Business, Individual, or Generic based on patterns">ℹ️</span>
+                                        </label>
+                                    </div>
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="smartColumnParsing" checked>
+                                        <label for="smartColumnParsing">
+                                            Smart column detection
+                                            <span class="info-icon" title="Automatically finds emails and phones in mixed-content columns">ℹ️</span>
+                                        </label>
+                                    </div>
+                                    <div class="option-group checkbox-group">
+                                        <input type="checkbox" id="consolidateColumns" checked>
+                                        <label for="consolidateColumns">
+                                            Consolidate duplicate columns
+                                            <span class="info-icon" title="Merges similar columns (e.g., Phone, Phone1, Mobile) - useful for large datasets">ℹ️</span>
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="classifyContacts" checked>
-                                <label for="classifyContacts">Classify as Business/Individual</label>
-                            </div>
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="smartColumnParsing" checked>
-                                <label for="smartColumnParsing">Auto-detect mixed columns (email/phone)</label>
-                            </div>
-                            <div class="option-group checkbox-group">
-                                <input type="checkbox" id="consolidateColumns" checked>
-                                <label for="consolidateColumns">Consolidate similar columns (large datasets)</label>
-                            </div>
-                        </div>
+                        </details>
                     </div>
                 </section>
 
                 <section class="step-panel" id="step-preview" style="display:none;">
+                    <div class="step-header">
+                        <h2>Preview Your Data</h2>
+                        <p class="step-description">Review transformed output before export. Toggle views to compare.</p>
+                    </div>
                     <div class="preview-section" id="previewSection" style="display: none;">
                         <div class="preview-header-bar">
-                            <h2>Data Preview</h2>
                             <div class="preview-info">
                                 <span class="preview-row-count" id="previewRowCount">0 rows</span>
                                 <span class="preview-toggle">
@@ -389,8 +537,23 @@
                 </section>
 
                 <section class="step-panel" id="step-export" style="display:none;">
+                    <div class="step-header">
+                        <h2>Download Your Data</h2>
+                        <p class="step-description">Export in your preferred format. View quality reports and export history below.</p>
+                    </div>
                     <div class="export-section" id="exportSection" style="display: none;">
-                        <h2>Export</h2>
+                        
+                        <!-- Data Profile Report -->
+                        <div class="data-profile-report" id="dataProfileReport" style="display:none;">
+                            <div class="profile-report-header">
+                                <h3>📊 Data Profile Report</h3>
+                                <button class="btn-ghost btn-small" id="toggleProfileReport">Hide Report</button>
+                            </div>
+                            <div class="profile-report-summary" id="profileReportSummary"></div>
+                            <div class="profile-report-fields" id="profileReportFields"></div>
+                        </div>
+                        <button class="btn-secondary" id="showProfileReport" style="margin-bottom: 16px;">Show Data Profile Report</button>
+                        
                         <div class="export-format-selector">
                             <label for="exportFormat">Export Format:</label>
                             <select id="exportFormat" class="format-select">
@@ -406,13 +569,24 @@
                                 <input type="file" id="existingFile" accept=".csv" hidden>
                             </div>
                         </div>
+                        
+                        <!-- Export History -->
+                        <div class="export-history" id="exportHistory" style="display:none; margin-top: 24px;">
+                            <div class="export-history-header">
+                                <h3>📋 Export History</h3>
+                                <button class="btn-ghost btn-small" id="clearHistory">Clear All</button>
+                            </div>
+                            <div class="export-history-list" id="exportHistoryList"></div>
+                        </div>
                     </div>
                 </section>
 
                 <section class="step-panel" id="step-filter" style="display:none;">
+                    <div class="step-header">
+                        <h2>Filter & Extract Data</h2>
+                        <p class="step-description">Create filtered exports by selecting specific tags and sources (AND logic).</p>
+                    </div>
                     <div class="export-section" id="filterSection" style="display: none;">
-                        <h2>Filtered Output</h2>
-                        <p class="filter-card-sub">Create a new file containing only rows matching tags and/or sources.</p>
                         <div class="filter-top-controls">
                             <div class="option-group">
                                 <label for="filterOutputProfile">Output Format:</label>
