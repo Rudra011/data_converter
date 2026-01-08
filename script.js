@@ -197,10 +197,7 @@ const appendGroup = document.getElementById('appendGroup');
 const previewRowCount = document.getElementById('previewRowCount');
 const previewViewMode = document.getElementById('previewViewMode');
 const previewContainer = document.getElementById('previewContainer');
-const previewHeaderScroll = document.getElementById('previewHeaderScroll');
 const previewScrollContainer = document.getElementById('previewScrollContainer');
-const previewHeaderTable = document.getElementById('previewHeaderTable');
-const previewBodyTable = document.getElementById('previewBodyTable');
 const previewTableHead = document.getElementById('previewTableHead');
 const previewTableBody = document.getElementById('previewTableBody');
 const previewSpacerTop = document.getElementById('previewSpacerTop');
@@ -214,6 +211,39 @@ const presetSelect = document.getElementById('presetSelect');
 const savePresetBtn = document.getElementById('savePresetBtn');
 const undoBtn = document.getElementById('undoBtn');
 const resetBtn = document.getElementById('resetBtn');
+const mappingPreviewToggle = document.getElementById('mappingPreviewToggle');
+const mappingPreview = document.getElementById('mappingPreview');
+const mappingPreviewHead = document.getElementById('mappingPreviewHead');
+const mappingPreviewBody = document.getElementById('mappingPreviewBody');
+const mappingPreviewView = document.getElementById('mappingPreviewView');
+const optionsPreviewToggle = document.getElementById('optionsPreviewToggle');
+const optionsPreview = document.getElementById('optionsPreview');
+const optionsPreviewHead = document.getElementById('optionsPreviewHead');
+const optionsPreviewBody = document.getElementById('optionsPreviewBody');
+const optionsPreviewView = document.getElementById('optionsPreviewView');
+const sidebarSteps = Array.from(document.querySelectorAll('.sidebar-step'));
+const mappingSplitFullName = document.getElementById('mappingSplitFullName');
+const mappingFullNameIsCompany = document.getElementById('mappingFullNameIsCompany');
+const stepPanels = {
+    upload: document.getElementById('step-upload'),
+    sheets: document.getElementById('step-sheets'),
+    mapping: document.getElementById('step-mapping'),
+    options: document.getElementById('step-options'),
+    preview: document.getElementById('step-preview'),
+    export: document.getElementById('step-export')
+};
+const prevStepBtn = document.getElementById('prevStep');
+const nextStepBtn = document.getElementById('nextStep');
+const primaryActionBtn = document.getElementById('primaryAction');
+const statusFileName = document.getElementById('statusFileName');
+const statusRows = document.getElementById('statusRows');
+const statusCols = document.getElementById('statusCols');
+const statusSheets = document.getElementById('statusSheets');
+const statusBadges = document.getElementById('statusBadges');
+
+const stepOrder = ['upload', 'sheets', 'mapping', 'options', 'preview', 'export'];
+let currentStepIndex = 0;
+let dataLoaded = false;
 
 // State history for undo functionality
 let stateHistory = [];
@@ -238,6 +268,76 @@ darkModeToggle.addEventListener('click', () => {
     localStorage.setItem('darkMode', isDarkMode);
 });
 
+function getActiveSheetMeta() {
+    if (isMultiSheetExcel && excelSheets[currentSheetIndex]) {
+        return excelSheets[currentSheetIndex];
+    }
+    return { data: inputData, headers: inputHeaders };
+}
+
+function updateStatusBar(extraBadges = []) {
+    const meta = getActiveSheetMeta();
+    statusFileName.textContent = currentFile ? currentFile.name : 'No file';
+    statusRows.textContent = meta?.data?.length || 0;
+    statusCols.textContent = meta?.headers?.length || 0;
+    statusSheets.textContent = isMultiSheetExcel ? excelSheets.length : (inputData.length ? 1 : 0);
+    statusBadges.innerHTML = '';
+    extraBadges.forEach(text => {
+        const pill = document.createElement('span');
+        pill.className = 'pill';
+        pill.textContent = text;
+        statusBadges.appendChild(pill);
+    });
+}
+
+function updateStepVisibility() {
+    const activeKey = stepOrder[currentStepIndex];
+    stepOrder.forEach(key => {
+        const panel = stepPanels[key];
+        if (panel) panel.style.display = key === activeKey ? 'block' : 'none';
+    });
+    sidebarSteps.forEach(btn => {
+        const btnKey = btn.dataset.step;
+        btn.classList.toggle('active', btnKey === activeKey);
+        btn.disabled = !dataLoaded && btnKey !== 'upload';
+    });
+    prevStepBtn.disabled = currentStepIndex === 0;
+    const nextLocked = currentStepIndex >= stepOrder.length - 1 || (!dataLoaded && stepOrder[currentStepIndex + 1] !== 'upload');
+    nextStepBtn.disabled = nextLocked;
+    primaryActionBtn.textContent = activeKey === 'export' ? 'Download' : 'Go to Export';
+    primaryActionBtn.disabled = !dataLoaded && activeKey !== 'upload';
+}
+
+function showStep(stepKey) {
+    if (!dataLoaded && stepKey !== 'upload') return;
+    const idx = stepOrder.indexOf(stepKey);
+    if (idx === -1) return;
+    currentStepIndex = idx;
+    updateStepVisibility();
+}
+
+function moveStep(delta) {
+    const nextIndex = Math.min(Math.max(currentStepIndex + delta, 0), stepOrder.length - 1);
+    const targetKey = stepOrder[nextIndex];
+    showStep(targetKey);
+}
+
+sidebarSteps.forEach(btn => {
+    btn.addEventListener('click', () => showStep(btn.dataset.step));
+});
+
+prevStepBtn.addEventListener('click', () => moveStep(-1));
+nextStepBtn.addEventListener('click', () => moveStep(1));
+primaryActionBtn.addEventListener('click', () => {
+    if (stepOrder[currentStepIndex] === 'export') {
+        downloadNewCSV();
+    } else {
+        showStep('export');
+    }
+});
+
+updateStepVisibility();
+
 browseBtn.addEventListener('click', (e) => {
     e.stopPropagation(); // Prevent event from bubbling to dropZone
     fileInput.click();
@@ -249,8 +349,40 @@ appendExistingBtn.addEventListener('click', () => existingFileInput.click());
 existingFileInput.addEventListener('change', handleAppendFile);
 
 // Preview event listeners
-previewViewMode.addEventListener('change', (e) => {
-    previewMode = e.target.value;
+function setPreviewMode(mode) {
+    previewMode = mode;
+    previewViewMode.value = mode;
+    mappingPreviewView.value = mode;
+    optionsPreviewView.value = mode;
+    refreshPreview();
+}
+
+previewViewMode.addEventListener('change', (e) => setPreviewMode(e.target.value));
+mappingPreviewView.addEventListener('change', (e) => setPreviewMode(e.target.value));
+optionsPreviewView.addEventListener('change', (e) => setPreviewMode(e.target.value));
+
+mappingPreviewToggle.addEventListener('change', (e) => {
+    mappingPreview.style.display = e.target.checked ? 'block' : 'none';
+    if (e.target.checked) renderInlinePreview('mapping');
+});
+
+optionsPreviewToggle.addEventListener('change', (e) => {
+    optionsPreview.style.display = e.target.checked ? 'block' : 'none';
+    if (e.target.checked) renderInlinePreview('options');
+});
+
+// Sync mapping name options with current sheet's nameOptions
+mappingSplitFullName.addEventListener('change', (e) => {
+    if (excelSheets.length > 0 && currentSheetIndex >= 0) {
+        excelSheets[currentSheetIndex].nameOptions.splitFullName = e.target.checked;
+    }
+    refreshPreview();
+});
+
+mappingFullNameIsCompany.addEventListener('change', (e) => {
+    if (excelSheets.length > 0 && currentSheetIndex >= 0) {
+        excelSheets[currentSheetIndex].nameOptions.fullNameIsCompany = e.target.checked;
+    }
     refreshPreview();
 });
 
@@ -683,12 +815,41 @@ function clearFile() {
     previewSection.style.display = 'none';
     mappingSection.style.display = 'none';
     exportSection.style.display = 'none';
+    mappingPreviewToggle.checked = false;
+    mappingPreview.style.display = 'none';
+    optionsPreviewToggle.checked = false;
+    optionsPreview.style.display = 'none';
+    dataLoaded = false;
+    currentStepIndex = 0;
+    updateStepVisibility();
+    updateStatusBar();
 
     // Reset preview state
     previewData = [];
     previewHeaders = [];
     previewMode = 'transformed';
     previewViewMode.value = 'transformed';
+    mappingPreviewView.value = 'transformed';
+    optionsPreviewView.value = 'transformed';
+}
+
+function finalizeDataLoad() {
+    optionsSection.style.display = 'block';
+    mappingSection.style.display = 'block';
+    previewSection.style.display = 'block';
+    exportSection.style.display = 'block';
+    dataLoaded = true;
+    if (mappingPreviewToggle.checked) mappingPreview.style.display = 'block';
+    if (optionsPreviewToggle.checked) optionsPreview.style.display = 'block';
+    updateStatusBar();
+    showStep('sheets');
+    updateStepVisibility();
+    
+    // Initialize mapping name options from first sheet
+    if (excelSheets.length > 0 && mappingSplitFullName && mappingFullNameIsCompany) {
+        mappingSplitFullName.checked = excelSheets[0].nameOptions.splitFullName;
+        mappingFullNameIsCompany.checked = excelSheets[0].nameOptions.fullNameIsCompany;
+    }
 }
 
 function parseExcel(data) {
@@ -797,12 +958,6 @@ function parseExcel(data) {
         autoMapFields();
 
         // Show sections
-        optionsSection.style.display = 'block';
-        mappingSection.style.display = 'block';
-        previewSection.style.display = 'block';
-        exportSection.style.display = 'block';
-
-        // Render UI
         renderMapping();
         initializePreview();
         
@@ -811,6 +966,8 @@ function parseExcel(data) {
         
         // Check for similar columns that can be consolidated
         checkAndNotifyConsolidation();
+
+        finalizeDataLoad();
 
         hideProgress();
     } catch (error) {
@@ -1012,6 +1169,13 @@ function loadSheetMapping(sheetIndex) {
     
     renderMapping();
     refreshPreview();
+    updateStatusBar();
+    
+    // Update mapping name option checkboxes
+    if (mappingSplitFullName && mappingFullNameIsCompany) {
+        mappingSplitFullName.checked = sheet.nameOptions.splitFullName;
+        mappingFullNameIsCompany.checked = sheet.nameOptions.fullNameIsCompany;
+    }
 }
 
 function parseCSV(csv) {
@@ -1087,10 +1251,6 @@ function parseCSV(csv) {
     autoMapFields();
     renderMapping();
 
-    optionsSection.style.display = 'block';
-    mappingSection.style.display = 'block';
-    exportSection.style.display = 'block';
-
     // For CSV, create a single pseudo-sheet to expose name options
     excelSheets = [{
         name: currentFile?.name || 'CSV',
@@ -1115,6 +1275,8 @@ function parseCSV(csv) {
     
     // Check for similar columns that can be consolidated
     checkAndNotifyConsolidation();
+
+    finalizeDataLoad();
 
     // Hide progress bar after short delay
     setTimeout(hideProgress, 500);
@@ -1432,6 +1594,7 @@ function refreshPreview() {
     updatePreviewInfo();
     renderPreviewHeaders();
     setupVirtualScroll();
+    renderInlinePreviews();
 }
 
 /**
@@ -1467,6 +1630,79 @@ function renderPreviewHeaders() {
     previewTableHead.appendChild(headerRow);
 }
 
+// Render inline previews inside mapping/options panels (small slice)
+function renderInlinePreview(target) {
+    const headEl = target === 'mapping' ? mappingPreviewHead : optionsPreviewHead;
+    const bodyEl = target === 'mapping' ? mappingPreviewBody : optionsPreviewBody;
+    if (!headEl || !bodyEl) return;
+
+    headEl.innerHTML = '';
+    bodyEl.innerHTML = '';
+
+    const headerRow = document.createElement('tr');
+    previewHeaders.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+    });
+    headEl.appendChild(headerRow);
+
+    const limit = Math.min(10, previewData.length);
+    for (let i = 0; i < limit; i++) {
+        const tr = document.createElement('tr');
+        previewHeaders.forEach(h => {
+            const td = document.createElement('td');
+            const value = previewData[i]?.[h] || '';
+            td.textContent = value;
+            tr.appendChild(td);
+        });
+        bodyEl.appendChild(tr);
+    }
+
+    // Sync horizontal scroll between header and body
+    const bodyContainer = bodyEl.closest('.inline-preview-body');
+    const headContainer = headEl.closest('.inline-preview-head');
+    if (bodyContainer && headContainer) {
+        bodyContainer.onscroll = () => {
+            headContainer.scrollLeft = bodyContainer.scrollLeft;
+        };
+    }
+
+    // Sync column widths after render
+    requestAnimationFrame(() => syncInlinePreviewWidths(target));
+}
+
+function syncInlinePreviewWidths(target) {
+    const headEl = target === 'mapping' ? mappingPreviewHead : optionsPreviewHead;
+    const bodyEl = target === 'mapping' ? mappingPreviewBody : optionsPreviewBody;
+    if (!headEl || !bodyEl) return;
+
+    const firstBodyRow = bodyEl.querySelector('tr');
+    const headerCells = headEl.querySelectorAll('th');
+    if (!firstBodyRow || !headerCells.length) return;
+
+    const bodyCells = firstBodyRow.querySelectorAll('td');
+    
+    bodyCells.forEach((td, index) => {
+        const th = headerCells[index];
+        if (th) {
+            const tdWidth = td.offsetWidth;
+            const thWidth = th.offsetWidth;
+            const maxWidth = Math.max(tdWidth, thWidth);
+            
+            th.style.minWidth = `${maxWidth}px`;
+            th.style.width = `${maxWidth}px`;
+            td.style.minWidth = `${maxWidth}px`;
+            td.style.width = `${maxWidth}px`;
+        }
+    });
+}
+
+function renderInlinePreviews() {
+    if (mappingPreviewToggle.checked) renderInlinePreview('mapping');
+    if (optionsPreviewToggle.checked) renderInlinePreview('options');
+}
+
 /**
  * Setup virtual scrolling infrastructure
  */
@@ -1487,10 +1723,12 @@ function setupVirtualScroll() {
 
     // Reset scroll position
     previewScrollContainer.scrollTop = 0;
-    previewHeaderScroll.scrollLeft = 0;
 
     // Render initial visible rows
     renderVisibleRows();
+    
+    // Sync column widths after initial render
+    requestAnimationFrame(() => syncPreviewColumnWidths());
 
     // Attach scroll listener (with throttling)
     previewScrollContainer.removeEventListener('scroll', handlePreviewScroll);
@@ -1502,13 +1740,7 @@ function setupVirtualScroll() {
  */
 function handlePreviewScroll(e) {
     const scrollTop = e.target.scrollTop;
-    const scrollLeft = e.target.scrollLeft;
     virtualState.scrollTop = scrollTop;
-
-    // Sync horizontal scroll with header
-    if (previewHeaderScroll.scrollLeft !== scrollLeft) {
-        previewHeaderScroll.scrollLeft = scrollLeft;
-    }
 
     // Calculate which rows should be visible
     const scrollRow = Math.floor(scrollTop / ROW_HEIGHT);
@@ -1560,27 +1792,28 @@ function renderVisibleRows() {
 
     previewTableBody.appendChild(fragment);
     
-    // Sync column widths between header and body tables
-    syncColumnWidths();
+    // Sync column widths after render
+    requestAnimationFrame(() => syncPreviewColumnWidths());
 }
 
-/**
- * Sync column widths between header and body tables
- */
-function syncColumnWidths() {
-    // Get all cells from first body row
-    const firstBodyRow = previewTableBody.querySelector('tr');
-    if (!firstBodyRow) return;
-    
-    const bodyCells = firstBodyRow.querySelectorAll('td');
+function syncPreviewColumnWidths() {
+    const firstRow = previewTableBody.querySelector('tr');
     const headerCells = previewTableHead.querySelectorAll('th');
+    if (!firstRow || !headerCells.length) return;
     
-    // Set explicit widths to keep columns aligned
+    const bodyCells = firstRow.querySelectorAll('td');
+    
     bodyCells.forEach((td, index) => {
-        if (headerCells[index]) {
-            const width = Math.max(td.offsetWidth, headerCells[index].offsetWidth);
-            td.style.width = `${width}px`;
-            headerCells[index].style.width = `${width}px`;
+        const th = headerCells[index];
+        if (th) {
+            const tdWidth = td.offsetWidth;
+            const thWidth = th.offsetWidth;
+            const maxWidth = Math.max(tdWidth, thWidth);
+            
+            th.style.minWidth = `${maxWidth}px`;
+            th.style.width = `${maxWidth}px`;
+            td.style.minWidth = `${maxWidth}px`;
+            td.style.width = `${maxWidth}px`;
         }
     });
 }

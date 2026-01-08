@@ -16,13 +16,10 @@
         <span>Your data never leaves your browser. 100% client-side processing.</span>
     </div>
 
-    <div class="container">
-        <header>
-            <div class="header-content">
-                <div>
-                    <h1>CSV to Campaigns Converter</h1>
-                    <p class="subtitle">Transform your CSV data into campaign-ready format</p>
-                </div>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>CSV to Campaigns</h1>
                 <button class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">
                     <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="5"></circle>
@@ -40,232 +37,336 @@
                     </svg>
                 </button>
             </div>
-        </header>
+            <nav class="sidebar-steps" id="sidebarSteps">
+                <button class="sidebar-step active" data-step="upload">1. Upload</button>
+                <button class="sidebar-step" data-step="sheets">2. Sheets & Tags</button>
+                <button class="sidebar-step" data-step="mapping">3. Mapping</button>
+                <button class="sidebar-step" data-step="options">4. Options</button>
+                <button class="sidebar-step" data-step="preview">5. Preview</button>
+                <button class="sidebar-step" data-step="export">6. Export</button>
+            </nav>
+        </aside>
 
-        <section class="file-input-section">
-            <div class="drop-zone" id="dropZone">
-                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                <p class="drop-text">Drag & drop your CSV or Excel file here</p>
-                <p class="drop-text-or">or</p>
-                <button class="btn-browse" id="browseBtn">Browse Files</button>
-                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
-            </div>
-            <div class="file-info" id="fileInfo" style="display: none;">
-                <span class="file-name" id="fileName"></span>
-                <button class="btn-clear" id="clearFile">Clear</button>
-            </div>
-
-            <div class="sheet-tags-section" id="sheetTagsSection" style="display: none;">
-                <h3>Excel Sheets & Tags</h3>
-                <p class="sheet-tags-description">Each sheet will be tagged with its name. Edit tags as needed:</p>
-                <div class="sheet-mapping-option">
-                    <label class="sheet-mapping-toggle">
-                        <input type="checkbox" id="sheetWiseMappingCheckbox">
-                        <span>Enable sheet-wise field mapping (recommended for sheets with different fields)</span>
-                    </label>
+        <div class="main-area">
+            <div class="top-status" id="topStatus">
+                <div class="status-item">
+                    <span class="label">File</span>
+                    <span class="value" id="statusFileName">No file</span>
                 </div>
-                <div class="sheet-tags-container" id="sheetTagsContainer">
+                <div class="status-item">
+                    <span class="label">Rows</span>
+                    <span class="value" id="statusRows">0</span>
                 </div>
-            </div>
-
-            <div class="progress-bar-container" id="progressBarContainer" style="display: none;">
-                <div class="progress-info">
-                    <span class="progress-label" id="progressLabel">Processing...</span>
-                    <span class="progress-percentage" id="progressPercentage">0%</span>
+                <div class="status-item">
+                    <span class="label">Columns</span>
+                    <span class="value" id="statusCols">0</span>
                 </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+                <div class="status-item">
+                    <span class="label">Sheets</span>
+                    <span class="value" id="statusSheets">0</span>
                 </div>
-            </div>
-        </section>
-
-        <section class="options-section" id="optionsSection" style="display: none;">
-            <div class="options-header-bar">
-                <h2>Options</h2>
-                <div class="options-controls">
-                    <button class="btn-undo" id="undoBtn" title="Undo last change" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 7v6h6"></path>
-                            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-                        </svg>
-                        Undo
-                    </button>
-                    <button class="btn-reset" id="resetBtn" title="Reset all options and mappings">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M1 4v6h6"></path>
-                            <path d="M23 20v-6h-6"></path>
-                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-                        </svg>
-                        Reset All
-                    </button>
-                </div>
+                <div class="status-item badge" id="statusBadges"></div>
             </div>
 
-            <div class="profile-selector-wrapper">
-                <label for="outputProfile">Output Format:</label>
-                <select id="outputProfile" class="profile-select">
-                    <option value="zoho_campaigns">Zoho Campaigns</option>
-                    <option value="zoho_crm">Zoho CRM (Leads)</option>
-                    <option value="zoho_crm_contacts">Zoho CRM (Contacts)</option>
-                    <option value="master_data">Master Data (Complete)</option>
-                    <option value="simple">Simple (Name, Email, Phone)</option>
-                    <option value="meta_ads">Meta/Facebook Ads Customer List</option>
-                </select>
-                <span class="profile-field-count" id="profileFieldCount">20 fields</span>
-            </div>
+            <div class="content-area">
+                <section class="step-panel" id="step-upload">
+                    <div class="file-input-section">
+                        <div class="drop-zone" id="dropZone">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="drop-text">Drag & drop your CSV or Excel file here</p>
+                            <p class="drop-text-or">or</p>
+                            <button class="btn-browse" id="browseBtn">Browse Files</button>
+                            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
+                        </div>
+                        <div class="file-info" id="fileInfo" style="display: none;">
+                            <span class="file-name" id="fileName"></span>
+                            <button class="btn-clear" id="clearFile">Clear</button>
+                        </div>
 
-            <h3 class="options-subtitle">General Settings</h3>
-            <div class="options-grid">
-                <div class="option-group">
-                    <label for="globalTags">Global Tags (comma separated)</label>
-                    <input type="text" id="globalTags" placeholder="e.g., Campaign2024, Newsletter">
-                </div>
-                <div class="option-group">
-                    <label for="sourceField">Source</label>
-                    <input type="text" id="sourceField" placeholder="Auto-filled from filename">
-                </div>
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="includeExtra">
-                    <label for="includeExtra">Include unmapped input columns</label>
-                </div>
-            </div>
-
-            <h3 class="options-subtitle">Data Intelligence</h3>
-            <div class="options-grid">
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="autoInferCompany" checked>
-                    <label for="autoInferCompany">Auto-infer company from email domain</label>
-                </div>
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="autoInferTitle" checked>
-                    <label for="autoInferTitle">Auto-infer job title from email</label>
-                </div>
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="classifyContacts" checked>
-                    <label for="classifyContacts">Classify as Business/Individual</label>
-                </div>
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="smartColumnParsing" checked>
-                    <label for="smartColumnParsing">Auto-detect mixed columns (email/phone)</label>
-                </div>
-                <div class="option-group checkbox-group">
-                    <input type="checkbox" id="consolidateColumns" checked>
-                    <label for="consolidateColumns">Consolidate similar columns (recommended for large datasets)</label>
-                </div>
-                <div class="option-group">
-                    <label>Handle Duplicates:</label>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="duplicateHandling" value="keep" checked>
-                            <span>Keep all</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="duplicateHandling" value="skip">
-                            <span>Skip duplicates</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="duplicateHandling" value="mark">
-                            <span>Mark with tag</span>
-                        </label>
+                        <div class="progress-bar-container" id="progressBarContainer" style="display: none;">
+                            <div class="progress-info">
+                                <span class="progress-label" id="progressLabel">Processing...</span>
+                                <span class="progress-percentage" id="progressPercentage">0%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                        </div>
                     </div>
-                    <span class="duplicate-count" id="duplicateCount"></span>
-                </div>
-            </div>
-        </section>
+                </section>
 
-        <section class="mapping-section" id="mappingSection" style="display: none;">
-            <div class="mapping-header-bar">
-                <div class="mapping-title-group">
-                    <h2>Field Mapping</h2>
-                    <div class="sheet-selector-wrapper" id="sheetSelectorWrapper" style="display: none;">
-                        <label for="sheetSelector">Mapping for:</label>
-                        <select id="sheetSelector" class="sheet-selector">
-                        </select>
+                <section class="step-panel" id="step-sheets" style="display:none;">
+                    <div class="sheet-tags-section" id="sheetTagsSection" style="display: none;">
+                        <div class="sheet-tags-header">
+                            <div>
+                                <h2>Sheets & Tags</h2>
+                                <p class="sheet-tags-description">Edit tags and name handling per sheet.</p>
+                            </div>
+                            <div class="sheet-mapping-option">
+                                <label class="sheet-mapping-toggle">
+                                    <input type="checkbox" id="sheetWiseMappingCheckbox">
+                                    <span>Enable sheet-wise field mapping (for different sheet schemas)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sheet-tags-container" id="sheetTagsContainer"></div>
                     </div>
-                </div>
-                <div class="preset-controls">
-                    <select id="presetSelect" class="preset-select">
-                        <option value="">-- Load Preset --</option>
-                    </select>
-                    <button class="btn-preset-save" id="savePresetBtn" title="Save current mapping as preset">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                        Save Preset
-                    </button>
-                </div>
-            </div>
-            <div class="mapping-container">
-                <div class="mapping-header">
-                    <div class="mapping-col-output">Output Field</div>
-                    <div class="mapping-col-input">Map to Input Column</div>
-                </div>
-                <div class="mapping-body" id="mappingBody"></div>
-            </div>
-        </section>
+                </section>
 
-        <section class="preview-section" id="previewSection" style="display: none;">
-            <div class="preview-header-bar">
-                <h2>Data Preview</h2>
-                <div class="preview-info">
-                    <span class="preview-row-count" id="previewRowCount">0 rows</span>
-                    <span class="preview-toggle">
-                        <label class="toggle-label">View:</label>
-                        <select id="previewViewMode" class="preview-mode-select">
-                            <option value="transformed">Transformed Output</option>
-                            <option value="raw">Raw Input</option>
-                        </select>
-                    </span>
-                </div>
-            </div>
-
-            <div class="preview-container" id="previewContainer">
-                <div class="preview-table-wrapper">
-                    <div class="preview-header-scroll" id="previewHeaderScroll">
-                        <table class="preview-table" id="previewHeaderTable">
-                            <thead class="preview-thead" id="previewTableHead">
-                            </thead>
-                        </table>
+                <section class="step-panel" id="step-mapping" style="display:none;">
+                    <div class="mapping-section" id="mappingSection" style="display: none;">
+                        <div class="mapping-header-bar">
+                            <div class="mapping-title-group">
+                                <h2>Field Mapping</h2>
+                                <div class="sheet-selector-wrapper" id="sheetSelectorWrapper" style="display: none;">
+                                    <label for="sheetSelector">Mapping for:</label>
+                                    <select id="sheetSelector" class="sheet-selector"></select>
+                                </div>
+                            </div>
+                            <div class="preset-controls">
+                                <select id="presetSelect" class="preset-select">
+                                    <option value="">-- Load Preset --</option>
+                                </select>
+                                <button class="btn-preset-save" id="savePresetBtn" title="Save current mapping as preset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                        <polyline points="7 3 7 8 15 8"></polyline>
+                                    </svg>
+                                    Save Preset
+                                </button>
+                            </div>
+                        </div>
+                        <div class="inline-preview-toggle">
+                            <label>
+                                <input type="checkbox" id="mappingPreviewToggle">
+                                <span>Show inline preview here</span>
+                            </label>
+                            <div class="inline-preview-controls">
+                                <label class="toggle-label">View:</label>
+                                <select id="mappingPreviewView" class="preview-mode-select">
+                                    <option value="transformed">Transformed Output</option>
+                                    <option value="raw">Raw Input</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="inline-preview" id="mappingPreview" style="display:none;">
+                            <div class="inline-preview-table">
+                                <div class="inline-preview-head">
+                                    <table><thead id="mappingPreviewHead"></thead></table>
+                                </div>
+                                <div class="inline-preview-body">
+                                    <table><tbody id="mappingPreviewBody"></tbody></table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="name-handling-options">
+                            <h3>Name Handling Options</h3>
+                            <div class="name-options-grid">
+                                <label class="name-option-label">
+                                    <input type="checkbox" id="mappingSplitFullName" checked>
+                                    <span>Split full name into first/last</span>
+                                </label>
+                                <label class="name-option-label">
+                                    <input type="checkbox" id="mappingFullNameIsCompany">
+                                    <span>Treat full name as company</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mapping-container">
+                            <div class="mapping-header">
+                                <div class="mapping-col-output">Output Field</div>
+                                <div class="mapping-col-input">Map to Input Column</div>
+                            </div>
+                            <div class="mapping-body" id="mappingBody"></div>
+                        </div>
                     </div>
-                    <div class="preview-scroll-container" id="previewScrollContainer">
-                        <div class="preview-spacer-top" id="previewSpacerTop"></div>
-                        <table class="preview-table" id="previewBodyTable">
-                            <tbody class="preview-tbody" id="previewTableBody">
-                            </tbody>
-                        </table>
-                        <div class="preview-spacer-bottom" id="previewSpacerBottom"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
+                </section>
 
-        <section class="export-section" id="exportSection" style="display: none;">
-            <h2>Export</h2>
-            <div class="export-format-selector">
-                <label for="exportFormat">Export Format:</label>
-                <select id="exportFormat" class="format-select">
-                    <option value="csv">CSV</option>
-                    <option value="xlsx">XLSX (Excel)</option>
-                    <option value="json">JSON</option>
-                </select>
+                <section class="step-panel" id="step-options" style="display:none;">
+                    <div class="options-section" id="optionsSection" style="display: none;">
+                        <div class="options-header-bar">
+                            <h2>Options</h2>
+                            <div class="options-controls">
+                                <button class="btn-undo" id="undoBtn" title="Undo last change" disabled>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 7v6h6"></path>
+                                        <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                                    </svg>
+                                    Undo
+                                </button>
+                                <button class="btn-reset" id="resetBtn" title="Reset all options and mappings">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 4v6h6"></path>
+                                        <path d="M23 20v-6h-6"></path>
+                                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                                    </svg>
+                                    Reset All
+                                </button>
+                            </div>
+                        </div>
+                        <div class="inline-preview-toggle">
+                            <label>
+                                <input type="checkbox" id="optionsPreviewToggle">
+                                <span>Show inline preview here</span>
+                            </label>
+                            <div class="inline-preview-controls">
+                                <label class="toggle-label">View:</label>
+                                <select id="optionsPreviewView" class="preview-mode-select">
+                                    <option value="transformed">Transformed Output</option>
+                                    <option value="raw">Raw Input</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="inline-preview" id="optionsPreview" style="display:none;">
+                            <div class="inline-preview-table">
+                                <div class="inline-preview-head">
+                                    <table><thead id="optionsPreviewHead"></thead></table>
+                                </div>
+                                <div class="inline-preview-body">
+                                    <table><tbody id="optionsPreviewBody"></tbody></table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="options-grid">
+                            <div class="option-group">
+                                <label for="outputProfile">Output Format:</label>
+                                <select id="outputProfile" class="profile-select">
+                                    <option value="zoho_campaigns">Zoho Campaigns</option>
+                                    <option value="zoho_crm">Zoho CRM (Leads)</option>
+                                    <option value="zoho_crm_contacts">Zoho CRM (Contacts)</option>
+                                    <option value="master_data">Master Data (Complete)</option>
+                                    <option value="simple">Simple (Name, Email, Phone)</option>
+                                    <option value="meta_ads">Meta/Facebook Ads Customer List</option>
+                                </select>
+                                <span class="profile-field-count" id="profileFieldCount">20 fields</span>
+                            </div>
+                            <div class="option-group">
+                                <label for="globalTags">Global Tags (comma separated)</label>
+                                <input type="text" id="globalTags" placeholder="e.g., Event, VIP">
+                            </div>
+                            <div class="option-group">
+                                <label for="sourceField">Source</label>
+                                <input type="text" id="sourceField" placeholder="e.g., Campaign Name">
+                            </div>
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="includeExtra">
+                                <label for="includeExtra">Include unmapped input columns</label>
+                            </div>
+                            <div class="option-group">
+                                <label>Handle Duplicates:</label>
+                                <div class="radio-group">
+                                    <label class="radio-label">
+                                        <input type="radio" name="duplicateHandling" value="keep" checked>
+                                        <span>Keep</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="duplicateHandling" value="drop">
+                                        <span>Drop duplicates</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="duplicateHandling" value="mark">
+                                        <span>Mark with tag</span>
+                                    </label>
+                                </div>
+                                <span class="duplicate-count" id="duplicateCount"></span>
+                            </div>
+                        </div>
+
+                        <h3 class="options-subtitle">Intelligence</h3>
+                        <div class="options-grid">
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="autoInferCompany" checked>
+                                <label for="autoInferCompany">Auto-infer company from email domain</label>
+                            </div>
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="autoInferTitle" checked>
+                                <label for="autoInferTitle">Auto-infer job title from email</label>
+                            </div>
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="classifyContacts" checked>
+                                <label for="classifyContacts">Classify as Business/Individual</label>
+                            </div>
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="smartColumnParsing" checked>
+                                <label for="smartColumnParsing">Auto-detect mixed columns (email/phone)</label>
+                            </div>
+                            <div class="option-group checkbox-group">
+                                <input type="checkbox" id="consolidateColumns" checked>
+                                <label for="consolidateColumns">Consolidate similar columns (large datasets)</label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="step-panel" id="step-preview" style="display:none;">
+                    <div class="preview-section" id="previewSection" style="display: none;">
+                        <div class="preview-header-bar">
+                            <h2>Data Preview</h2>
+                            <div class="preview-info">
+                                <span class="preview-row-count" id="previewRowCount">0 rows</span>
+                                <span class="preview-toggle">
+                                    <label class="toggle-label">View:</label>
+                                    <select id="previewViewMode" class="preview-mode-select">
+                                        <option value="transformed">Transformed Output</option>
+                                        <option value="raw">Raw Input</option>
+                                    </select>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="preview-container" id="previewContainer">
+                            <div class="preview-scroll-container" id="previewScrollContainer">
+                                <div class="preview-spacer-top" id="previewSpacerTop"></div>
+                                <table class="preview-table">
+                                    <thead class="preview-thead" id="previewTableHead"></thead>
+                                    <tbody class="preview-tbody" id="previewTableBody"></tbody>
+                                </table>
+                                <div class="preview-spacer-bottom" id="previewSpacerBottom"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="step-panel" id="step-export" style="display:none;">
+                    <div class="export-section" id="exportSection" style="display: none;">
+                        <h2>Export</h2>
+                        <div class="export-format-selector">
+                            <label for="exportFormat">Export Format:</label>
+                            <select id="exportFormat" class="format-select">
+                                <option value="csv">CSV</option>
+                                <option value="xlsx">XLSX (Excel)</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <div class="export-actions">
+                            <button class="btn-primary" id="downloadNew">Download New File</button>
+                            <div class="append-group" id="appendGroup">
+                                <button class="btn-secondary" id="appendExisting">Append to Existing CSV</button>
+                                <input type="file" id="existingFile" accept=".csv" hidden>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-            <div class="export-actions">
-                <button class="btn-primary" id="downloadNew">Download New File</button>
-                <div class="append-group" id="appendGroup">
-                    <button class="btn-secondary" id="appendExisting">Append to Existing CSV</button>
-                    <input type="file" id="existingFile" accept=".csv" hidden>
+
+            <div class="action-bar">
+                <div class="action-left">
+                    <button class="btn-ghost" id="prevStep">Previous</button>
+                </div>
+                <div class="action-right">
+                    <button class="btn-secondary" id="nextStep">Next</button>
+                    <button class="btn-primary" id="primaryAction">Go to Export</button>
                 </div>
             </div>
-        </section>
+        </div>
     </div>
 
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
