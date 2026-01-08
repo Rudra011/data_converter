@@ -130,6 +130,13 @@ body {
     overflow-y: auto;
 }
 
+.start-panel { padding: 24px; }
+.start-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 12px; }
+.start-card { text-align: left; border: 2px solid var(--border-color); border-radius: 12px; background: var(--input-bg); padding: 18px; cursor: pointer; transition: all 0.2s ease; }
+.start-card:hover { border-color: var(--accent-primary); box-shadow: 0 8px 16px var(--shadow-color); transform: translateY(-2px); }
+.start-card-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.start-card-sub { color: var(--text-secondary); font-size: 0.95rem; }
+
 .step-panel {
     display: block;
 }
@@ -289,6 +296,24 @@ body {
 .name-option-label input[type="checkbox"] {
     cursor: pointer;
 }
+
+/* Quality badges */
+.quality-summary { margin: 10px 0; }
+.quality-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.quality-badges .pill { background: var(--section-bg); color: var(--text-primary); padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border-color); }
+.quality-badges .pill.warn { background: #fff4e5; border-color: #ffd39e; }
+.quality-badges .pill.error { background: #ffe8e8; border-color: #ffb3b3; }
+
+/* Row probe */
+.row-probe { margin-top: 16px; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: var(--container-bg); }
+.row-probe-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.row-probe-controls { display: flex; align-items: center; gap: 8px; }
+.row-probe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.row-probe-col h4 { margin: 6px 0; font-size: 13px; opacity: 0.85; }
+.probe-table { max-height: 220px; overflow: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); }
+.probe-table table { width: 100%; border-collapse: collapse; }
+.probe-table th, .probe-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); font-size: 12px; white-space: nowrap; }
+.probe-table tr:nth-child(odd) { background: var(--section-bg); }
 
 @media (max-width: 1100px) {
     .app-shell {
@@ -1453,6 +1478,134 @@ body.dark-mode .profile-field-count {
     display: flex;
     gap: 20px;
     flex-wrap: wrap;
+}
+
+.filter-export-card {
+    margin-top: 20px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--container-bg);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+.filter-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.filter-card-header h3 {
+    margin: 0;
+}
+
+.filter-card-sub {
+    margin: 4px 0 0 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.filter-match {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--section-bg);
+    border: 1px solid var(--border-color);
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.filter-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.filter-field label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+    color: var(--text-primary);
+}
+
+.filter-field input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.filter-field input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(160, 130, 109, 0.15);
+}
+
+.filter-field small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.filter-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    border: 1px dashed var(--border-color);
+    border-radius: 10px;
+    background: var(--section-bg);
+    min-height: 52px;
+}
+
+.filter-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--input-bg);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.filter-tag-pill input {
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.filter-tag-pill:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.filter-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filter-hint {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.filter-top-controls {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin: 12px 0 10px 0;
 }
 
 .btn-primary,

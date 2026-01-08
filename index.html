@@ -44,6 +44,7 @@
                 <button class="sidebar-step" data-step="options">4. Options</button>
                 <button class="sidebar-step" data-step="preview">5. Preview</button>
                 <button class="sidebar-step" data-step="export">6. Export</button>
+                <button class="sidebar-step" data-step="filter">7. Filter</button>
             </nav>
         </aside>
 
@@ -69,6 +70,21 @@
             </div>
 
             <div class="content-area">
+                <section class="step-panel" id="step-start">
+                    <div class="start-panel">
+                        <h2>What would you like to do?</h2>
+                        <div class="start-cards">
+                            <button class="start-card" id="startConvert">
+                                <div class="start-card-title">CSV/XLSX → Campaigns</div>
+                                <div class="start-card-sub">Upload a file, map fields, preview, and export.</div>
+                            </button>
+                            <button class="start-card" id="startFilter">
+                                <div class="start-card-title">Filter Master</div>
+                                <div class="start-card-sub">Upload a dataset, pick tags/sources, and download a filtered file.</div>
+                            </button>
+                        </div>
+                    </div>
+                </section>
                 <section class="step-panel" id="step-upload">
                     <div class="file-input-section">
                         <div class="drop-zone" id="dropZone">
@@ -154,6 +170,9 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="quality-summary" id="mappingQuality" style="display:none;">
+                            <div class="quality-badges" id="mappingQualityBadges"></div>
+                        </div>
                         <div class="inline-preview" id="mappingPreview" style="display:none;">
                             <div class="inline-preview-table">
                                 <div class="inline-preview-head">
@@ -183,6 +202,29 @@
                                 <div class="mapping-col-input">Map to Input Column</div>
                             </div>
                             <div class="mapping-body" id="mappingBody"></div>
+                        </div>
+                        <div class="row-probe" id="rowProbe" style="display:none;">
+                            <div class="row-probe-header">
+                                <h3>Row Probe</h3>
+                                <div class="row-probe-controls">
+                                    <label for="rowProbeIndex">Row:</label>
+                                    <input type="number" id="rowProbeIndex" min="1" value="1">
+                                </div>
+                            </div>
+                            <div class="row-probe-grid">
+                                <div class="row-probe-col">
+                                    <h4>Raw</h4>
+                                    <div class="probe-table" id="probeRaw"></div>
+                                </div>
+                                <div class="row-probe-col">
+                                    <h4>Mapped</h4>
+                                    <div class="probe-table" id="probeMapped"></div>
+                                </div>
+                                <div class="row-probe-col">
+                                    <h4>Transformed</h4>
+                                    <div class="probe-table" id="probeTransformed"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -221,6 +263,9 @@
                                     <option value="raw">Raw Input</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="quality-summary" id="optionsQuality" style="display:none;">
+                            <div class="quality-badges" id="optionsQualityBadges"></div>
                         </div>
                         <div class="inline-preview" id="optionsPreview" style="display:none;">
                             <div class="inline-preview-table">
@@ -348,6 +393,59 @@
                             <div class="append-group" id="appendGroup">
                                 <button class="btn-secondary" id="appendExisting">Append to Existing CSV</button>
                                 <input type="file" id="existingFile" accept=".csv" hidden>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="step-panel" id="step-filter" style="display:none;">
+                    <div class="export-section" id="filterSection" style="display: none;">
+                        <h2>Filtered Output</h2>
+                        <p class="filter-card-sub">Create a new file containing only rows matching tags and/or sources.</p>
+                        <div class="filter-top-controls">
+                            <div class="option-group">
+                                <label for="filterOutputProfile">Output Format:</label>
+                                <select id="filterOutputProfile" class="profile-select">
+                                    <option value="zoho_campaigns">Zoho Campaigns</option>
+                                    <option value="zoho_crm">Zoho CRM (Leads)</option>
+                                    <option value="zoho_crm_contacts">Zoho CRM (Contacts)</option>
+                                    <option value="master_data">Master Data (Complete)</option>
+                                    <option value="simple">Simple (Name, Email, Phone)</option>
+                                    <option value="meta_ads">Meta/Facebook Ads Customer List</option>
+                                </select>
+                            </div>
+                            <div class="export-format-selector">
+                                <label for="filterExportFormat">Export Format:</label>
+                                <select id="filterExportFormat" class="format-select">
+                                    <option value="csv">CSV</option>
+                                    <option value="xlsx">XLSX (Excel)</option>
+                                    <option value="json">JSON</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="filter-export-card">
+                            <div class="filter-card-header">
+                                <div>
+                                    <h3>Filtering</h3>
+                                    <p class="filter-card-sub">Select tags and sources; uses current output & export formats.</p>
+                                </div>
+                                <div class="filter-match" id="filterMatchCount">0 rows match</div>
+                            </div>
+                            <div class="filter-card-grid">
+                                <div class="filter-field">
+                                    <label>Select required tags (AND)</label>
+                                    <div class="filter-tags" id="filterTags"></div>
+                                    <small>Rows must include every selected tag in their Tags field. Predefined tags appear first; discovered tags from your data follow.</small>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="filterSources">Limit to sources (comma separated)</label>
+                                    <input type="text" id="filterSources" placeholder="e.g., SpringCampaign, WebForm">
+                                    <small>Matches Source or Lead Source fields. Leave empty to include all sources.</small>
+                                </div>
+                            </div>
+                            <div class="filter-card-actions">
+                                <button class="btn-secondary" id="downloadFiltered" disabled>Download Filtered Output</button>
+                                <span class="filter-hint">Uses current output format and export format.</span>
                             </div>
                         </div>
                     </div>

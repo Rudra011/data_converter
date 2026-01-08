@@ -177,6 +177,7 @@ const optionsSection = document.getElementById('optionsSection');
 const previewSection = document.getElementById('previewSection');
 const mappingSection = document.getElementById('mappingSection');
 const exportSection = document.getElementById('exportSection');
+const filterSection = document.getElementById('filterSection');
 const mappingBody = document.getElementById('mappingBody');
 const globalTagsInput = document.getElementById('globalTags');
 const sourceFieldInput = document.getElementById('sourceField');
@@ -194,6 +195,12 @@ const appendExistingBtn = document.getElementById('appendExisting');
 const existingFileInput = document.getElementById('existingFile');
 const exportFormatSelect = document.getElementById('exportFormat');
 const appendGroup = document.getElementById('appendGroup');
+const filterTagsContainer = document.getElementById('filterTags');
+const filterSourcesInput = document.getElementById('filterSources');
+const downloadFilteredBtn = document.getElementById('downloadFiltered');
+const filterMatchCount = document.getElementById('filterMatchCount');
+const filterOutputProfileSelect = document.getElementById('filterOutputProfile');
+const filterExportFormatSelect = document.getElementById('filterExportFormat');
 const previewRowCount = document.getElementById('previewRowCount');
 const previewViewMode = document.getElementById('previewViewMode');
 const previewContainer = document.getElementById('previewContainer');
@@ -221,16 +228,28 @@ const optionsPreview = document.getElementById('optionsPreview');
 const optionsPreviewHead = document.getElementById('optionsPreviewHead');
 const optionsPreviewBody = document.getElementById('optionsPreviewBody');
 const optionsPreviewView = document.getElementById('optionsPreviewView');
+// Quality and Row Probe elements
+const mappingQuality = document.getElementById('mappingQuality');
+const mappingQualityBadges = document.getElementById('mappingQualityBadges');
+const optionsQuality = document.getElementById('optionsQuality');
+const optionsQualityBadges = document.getElementById('optionsQualityBadges');
+const rowProbe = document.getElementById('rowProbe');
+const rowProbeIndex = document.getElementById('rowProbeIndex');
+const probeRaw = document.getElementById('probeRaw');
+const probeMapped = document.getElementById('probeMapped');
+const probeTransformed = document.getElementById('probeTransformed');
 const sidebarSteps = Array.from(document.querySelectorAll('.sidebar-step'));
 const mappingSplitFullName = document.getElementById('mappingSplitFullName');
 const mappingFullNameIsCompany = document.getElementById('mappingFullNameIsCompany');
 const stepPanels = {
+    start: document.getElementById('step-start'),
     upload: document.getElementById('step-upload'),
     sheets: document.getElementById('step-sheets'),
     mapping: document.getElementById('step-mapping'),
     options: document.getElementById('step-options'),
     preview: document.getElementById('step-preview'),
-    export: document.getElementById('step-export')
+    export: document.getElementById('step-export'),
+    filter: document.getElementById('step-filter')
 };
 const prevStepBtn = document.getElementById('prevStep');
 const nextStepBtn = document.getElementById('nextStep');
@@ -241,9 +260,10 @@ const statusCols = document.getElementById('statusCols');
 const statusSheets = document.getElementById('statusSheets');
 const statusBadges = document.getElementById('statusBadges');
 
-const stepOrder = ['upload', 'sheets', 'mapping', 'options', 'preview', 'export'];
+const stepOrder = ['start', 'upload', 'sheets', 'mapping', 'options', 'preview', 'export', 'filter'];
 let currentStepIndex = 0;
 let dataLoaded = false;
+let appMode = 'convert'; // 'convert' | 'filter'
 
 // State history for undo functionality
 let stateHistory = [];
@@ -302,14 +322,22 @@ function updateStepVisibility() {
         btn.disabled = !dataLoaded && btnKey !== 'upload';
     });
     prevStepBtn.disabled = currentStepIndex === 0;
-    const nextLocked = currentStepIndex >= stepOrder.length - 1 || (!dataLoaded && stepOrder[currentStepIndex + 1] !== 'upload');
+    const nextLocked = currentStepIndex >= stepOrder.length - 1 || (!dataLoaded && !['upload','start'].includes(stepOrder[currentStepIndex + 1]));
     nextStepBtn.disabled = nextLocked;
-    primaryActionBtn.textContent = activeKey === 'export' ? 'Download' : 'Go to Export';
-    primaryActionBtn.disabled = !dataLoaded && activeKey !== 'upload';
+    if (activeKey === 'start') {
+        primaryActionBtn.textContent = 'Go to Upload';
+    } else if (activeKey === 'export') {
+        primaryActionBtn.textContent = 'Go to Filter';
+    } else if (activeKey === 'filter') {
+        primaryActionBtn.textContent = 'Download Filtered';
+    } else {
+        primaryActionBtn.textContent = 'Go to Export';
+    }
+    primaryActionBtn.disabled = !dataLoaded && !['upload','start'].includes(activeKey);
 }
 
 function showStep(stepKey) {
-    if (!dataLoaded && stepKey !== 'upload') return;
+    if (!dataLoaded && !['upload','start'].includes(stepKey)) return;
     const idx = stepOrder.indexOf(stepKey);
     if (idx === -1) return;
     currentStepIndex = idx;
@@ -329,12 +357,23 @@ sidebarSteps.forEach(btn => {
 prevStepBtn.addEventListener('click', () => moveStep(-1));
 nextStepBtn.addEventListener('click', () => moveStep(1));
 primaryActionBtn.addEventListener('click', () => {
-    if (stepOrder[currentStepIndex] === 'export') {
-        downloadNewCSV();
+    const activeKey = stepOrder[currentStepIndex];
+    if (activeKey === 'start') {
+        showStep('upload');
+    } else if (activeKey === 'export') {
+        showStep('filter');
+    } else if (activeKey === 'filter') {
+        downloadFilteredOutput();
     } else {
         showStep('export');
     }
 });
+// Start screen actions
+const startConvertBtn = document.getElementById('startConvert');
+const startFilterBtn = document.getElementById('startFilter');
+if (startConvertBtn) startConvertBtn.addEventListener('click', () => { appMode = 'convert'; showStep('upload'); });
+if (startFilterBtn) startFilterBtn.addEventListener('click', () => { appMode = 'filter'; showStep('upload'); });
+
 
 updateStepVisibility();
 
@@ -364,27 +403,46 @@ optionsPreviewView.addEventListener('change', (e) => setPreviewMode(e.target.val
 mappingPreviewToggle.addEventListener('change', (e) => {
     mappingPreview.style.display = e.target.checked ? 'block' : 'none';
     if (e.target.checked) renderInlinePreview('mapping');
+    renderInlineQuality();
 });
 
 optionsPreviewToggle.addEventListener('change', (e) => {
     optionsPreview.style.display = e.target.checked ? 'block' : 'none';
     if (e.target.checked) renderInlinePreview('options');
+    renderInlineQuality();
 });
 
-// Sync mapping name options with current sheet's nameOptions
-mappingSplitFullName.addEventListener('change', (e) => {
-    if (excelSheets.length > 0 && currentSheetIndex >= 0) {
-        excelSheets[currentSheetIndex].nameOptions.splitFullName = e.target.checked;
+// Helper to set name options (per-sheet when sheet-wise mapping is on, otherwise global across all sheets)
+function setNameOption(optionKey, value) {
+    if (!excelSheets || excelSheets.length === 0) return;
+    if (useSheetWiseMapping) {
+        const s = excelSheets[currentSheetIndex];
+        if (!s.nameOptions) s.nameOptions = {};
+        s.nameOptions[optionKey] = value;
+    } else {
+        // Apply to all sheets to keep consistent in unified mode
+        excelSheets.forEach(s => {
+            if (!s.nameOptions) s.nameOptions = {};
+            s.nameOptions[optionKey] = value;
+        });
     }
+}
+
+// Sync mapping name options with current/global nameOptions
+mappingSplitFullName.addEventListener('change', (e) => {
+    setNameOption('splitFullName', e.target.checked);
     refreshPreview();
 });
 
 mappingFullNameIsCompany.addEventListener('change', (e) => {
-    if (excelSheets.length > 0 && currentSheetIndex >= 0) {
-        excelSheets[currentSheetIndex].nameOptions.fullNameIsCompany = e.target.checked;
-    }
+    setNameOption('fullNameIsCompany', e.target.checked);
     refreshPreview();
 });
+
+// Row probe index change
+if (rowProbeIndex) {
+    rowProbeIndex.addEventListener('change', () => renderRowProbe());
+}
 
 // Debounced preview updates for option changes
 globalTagsInput.addEventListener('input', debounce(refreshPreview, 300));
@@ -413,9 +471,14 @@ exportFormatSelect.addEventListener('change', (e) => {
     }
 });
 
+// Filtered export inputs
+if (filterSourcesInput) filterSourcesInput.addEventListener('input', debounce(refreshFilterSummary, 250));
+if (downloadFilteredBtn) downloadFilteredBtn.addEventListener('click', downloadFilteredOutput);
+
 // Output profile change - re-render mappings and preview
 outputProfileSelect.addEventListener('change', (e) => {
     currentProfile = e.target.value;
+    if (filterOutputProfileSelect) filterOutputProfileSelect.value = currentProfile;
     updateProfileFieldCount();
 
     // Re-run auto mapping with new profile
@@ -427,6 +490,21 @@ outputProfileSelect.addEventListener('change', (e) => {
         refreshPreview();
     }
 });
+
+// Filter step: output profile select mirrors the main one
+if (filterOutputProfileSelect) {
+    filterOutputProfileSelect.value = currentProfile;
+    filterOutputProfileSelect.addEventListener('change', (e) => {
+        currentProfile = e.target.value;
+        outputProfileSelect.value = currentProfile;
+        updateProfileFieldCount();
+        autoMapFields();
+        renderMapping();
+        if (inputData.length > 0) {
+            refreshPreview();
+        }
+    });
+}
 
 // Preset controls
 savePresetBtn.addEventListener('click', savePreset);
@@ -594,6 +672,38 @@ function loadPresetsDropdown() {
         presetSelect.appendChild(option);
     });
 }
+// ===== PROFILE AUTO-DETECTION =====
+function normalizeName(s) { return String(s || '').toLowerCase().trim(); }
+
+function detectProfileFromHeaders(headers) {
+    const normHeaders = new Set((headers || []).map(normalizeName));
+    let bestKey = null; let bestScore = 0; let bestMatches = 0;
+    Object.entries(OUTPUT_PROFILES).forEach(([key, prof]) => {
+        const normFields = prof.fields.map(normalizeName);
+        const matches = normFields.filter(f => normHeaders.has(f)).length;
+        const denom = Math.max(1, Math.min(normFields.length, normHeaders.size));
+        const score = matches / denom;
+        if (score > bestScore || (score === bestScore && matches > bestMatches)) {
+            bestScore = score; bestKey = key; bestMatches = matches;
+        }
+    });
+    // Require a reasonable match (>=60% of min(field/header) and at least 3 fields)
+    if (bestScore >= 0.6 && bestMatches >= 3) return bestKey;
+    return null;
+}
+
+function detectAndApplyProfile(headers) {
+    const detected = detectProfileFromHeaders(headers);
+    if (detected && detected !== currentProfile) {
+        currentProfile = detected;
+        if (outputProfileSelect) outputProfileSelect.value = currentProfile;
+        if (filterOutputProfileSelect) filterOutputProfileSelect.value = currentProfile;
+        updateProfileFieldCount();
+        return true;
+    }
+    return false;
+}
+
 
 /**
  * Save current mapping as a preset
@@ -784,8 +894,33 @@ function handleFile(file) {
         if (isExcel) {
             parseExcel(e.target.result);
         } else {
-            const csv = e.target.result;
-            parseCSV(csv);
+            const csvText = e.target.result;
+            if (file.size > 1024 * 1024) {
+                showProgress('Parsing CSV in background...', 0, 100);
+                try {
+                    if (!window.__csvWorker) {
+                        window.__csvWorker = new Worker('csvWorker.js');
+                    }
+                    const w = window.__csvWorker;
+                    w.onmessage = (msg) => {
+                        const data = msg.data || {};
+                        if (data.type === 'progress') {
+                            updateProgress(data.done, data.total);
+                        } else if (data.type === 'result') {
+                            handleParsedCSV(data.headers, data.rows);
+                        } else if (data.type === 'error') {
+                            console.error('CSV worker error:', data.error);
+                            parseCSV(csvText);
+                        }
+                    };
+                    w.postMessage({ type: 'parseCSV', text: csvText });
+                } catch (err) {
+                    console.warn('Worker unavailable, falling back to main-thread CSV parsing.', err);
+                    parseCSV(csvText);
+                }
+            } else {
+                parseCSV(csvText);
+            }
         }
     };
     
@@ -815,6 +950,7 @@ function clearFile() {
     previewSection.style.display = 'none';
     mappingSection.style.display = 'none';
     exportSection.style.display = 'none';
+    filterSection.style.display = 'none';
     mappingPreviewToggle.checked = false;
     mappingPreview.style.display = 'none';
     optionsPreviewToggle.checked = false;
@@ -833,16 +969,50 @@ function clearFile() {
     optionsPreviewView.value = 'transformed';
 }
 
+function handleParsedCSV(headers, rows) {
+    inputHeaders = headers;
+    inputData = rows;
+    // Auto-detect profile from headers (useful when re-uploading app output)
+    detectAndApplyProfile(inputHeaders);
+    showProgress('Mapping fields...', 100, 100);
+    autoMapFields();
+    renderMapping();
+
+    // Create pseudo-sheet to expose name options for CSV
+    excelSheets = [{
+        name: currentFile?.name || 'CSV',
+        tag: 'CSV',
+        data: inputData,
+        headers: inputHeaders,
+        mapping: {},
+        nameOptions: { splitFullName: true, fullNameIsCompany: false }
+    }];
+    isMultiSheetExcel = false;
+    renderSheetTags();
+    const sheetTagsSection = document.getElementById('sheetTagsSection');
+    if (sheetTagsSection) sheetTagsSection.style.display = 'block';
+    const sheetMappingOption = document.querySelector('.sheet-mapping-option');
+    if (sheetMappingOption) sheetMappingOption.style.display = 'none';
+
+    initializePreview();
+    checkAndNotifyMixedColumns();
+    checkAndNotifyConsolidation();
+    finalizeDataLoad();
+    setTimeout(hideProgress, 500);
+}
+
 function finalizeDataLoad() {
     optionsSection.style.display = 'block';
     mappingSection.style.display = 'block';
     previewSection.style.display = 'block';
     exportSection.style.display = 'block';
+    filterSection.style.display = 'block';
     dataLoaded = true;
     if (mappingPreviewToggle.checked) mappingPreview.style.display = 'block';
     if (optionsPreviewToggle.checked) optionsPreview.style.display = 'block';
     updateStatusBar();
-    showStep('sheets');
+    const defaultStep = (appMode === 'filter') ? 'filter' : 'sheets';
+    showStep(defaultStep);
     updateStepVisibility();
     
     // Initialize mapping name options from first sheet
@@ -885,12 +1055,27 @@ function parseExcel(data) {
                 continue; // Skip empty sheets
             }
 
-            // First row is headers
-            const headers = jsonData[0].map(h => String(h).trim()).filter(h => h);
+            // Detect if first row looks like data (e.g., email list without headers)
+            const firstRowArr = Array.isArray(jsonData[0]) ? jsonData[0] : [];
+            const firstRowHasEmail = firstRowArr.some(v => isEmail(String(v || '')));
+            const firstRowHasPhone = firstRowArr.some(v => isPhoneNumber(String(v || '')));
+            const noHeader = (firstRowHasEmail || firstRowHasPhone);
+
+            // Build headers
+            const headers = firstRowArr.map((val, idx) => {
+                const v = String(val || '').trim();
+                if (noHeader) {
+                    if (isEmail(v)) return 'Email';
+                    if (isPhoneNumber(v)) return 'Phone';
+                    return `Column ${idx + 1}`;
+                }
+                return v || `Column ${idx + 1}`;
+            });
             
             // Remaining rows are data
             const sheetData = [];
-            for (let i = 1; i < jsonData.length; i++) {
+            const startIdx = noHeader ? 0 : 1;
+            for (let i = startIdx; i < jsonData.length; i++) {
                 const row = {};
                 let hasData = false;
                 
@@ -932,6 +1117,9 @@ function parseExcel(data) {
 
         // Merge all sheets data and headers
         mergeExcelSheets();
+
+        // Auto-detect profile from merged headers
+        detectAndApplyProfile(inputHeaders);
 
         // Show sheet tags UI for any Excel (single or multiple sheets)
         renderSheetTags();
@@ -1170,6 +1358,7 @@ function loadSheetMapping(sheetIndex) {
     renderMapping();
     refreshPreview();
     updateStatusBar();
+    renderRowProbe();
     
     // Update mapping name option checkboxes
     if (mappingSplitFullName && mappingFullNameIsCompany) {
@@ -1187,7 +1376,7 @@ function parseCSV(csv) {
     const csvLength = csv.length;
     let lastProgressUpdate = 0;
 
-    for (let i = 0; i < csv.length; i++) {
+        for (let i = 0; i < csvLength; i++) {
         // Update progress every 5% for large files
         if (csvLength > 100000 && i - lastProgressUpdate > csvLength / 20) {
             updateProgress(i, csvLength);
@@ -1230,10 +1419,27 @@ function parseCSV(csv) {
 
     showProgress('Processing rows...', 0, lines.length);
 
-    inputHeaders = parseCSVLine(lines[0]);
-    inputData = [];
+    const firstRowValues = parseCSVLine(lines[0]);
+    let headers = [];
+    const rows = [];
 
-    for (let i = 1; i < lines.length; i++) {
+    // Detect if first row looks like data (e.g., email list without headers)
+    const firstHasEmail = firstRowValues.some(v => isEmail(String(v || '')));
+    const firstHasPhone = firstRowValues.some(v => isPhoneNumber(String(v || '')));
+    const noHeader = (firstHasEmail || firstHasPhone);
+
+    headers = firstRowValues.map((v, idx) => {
+        const val = String(v || '').trim();
+        if (noHeader) {
+            if (isEmail(val)) return 'Email';
+            if (isPhoneNumber(val)) return 'Phone';
+            return `Column ${idx + 1}`;
+        }
+        return val || `Column ${idx + 1}`;
+    });
+
+    const startIndex = noHeader ? 0 : 1;
+    for (let i = startIndex; i < lines.length; i++) {
         // Update progress for large files
         if (lines.length > 1000 && i % Math.floor(lines.length / 20) === 0) {
             updateProgress(i, lines.length);
@@ -1241,45 +1447,13 @@ function parseCSV(csv) {
 
         const values = parseCSVLine(lines[i]);
         const row = {};
-        inputHeaders.forEach((header, index) => {
+        headers.forEach((header, index) => {
             row[header] = values[index] || '';
         });
-        inputData.push(row);
+        const hasData = Object.values(row).some(v => String(v || '').trim() !== '');
+        if (hasData) rows.push(row);
     }
-
-    showProgress('Mapping fields...', 100, 100);
-    autoMapFields();
-    renderMapping();
-
-    // For CSV, create a single pseudo-sheet to expose name options
-    excelSheets = [{
-        name: currentFile?.name || 'CSV',
-        tag: 'CSV',
-        data: inputData,
-        headers: inputHeaders,
-        mapping: {},
-        nameOptions: { splitFullName: true, fullNameIsCompany: false }
-    }];
-    isMultiSheetExcel = false;
-    renderSheetTags();
-    const sheetTagsSection = document.getElementById('sheetTagsSection');
-    if (sheetTagsSection) sheetTagsSection.style.display = 'block';
-    const sheetMappingOption = document.querySelector('.sheet-mapping-option');
-    if (sheetMappingOption) sheetMappingOption.style.display = 'none';
-
-    // Initialize preview after auto-mapping
-    initializePreview();
-    
-    // Check for mixed columns and notify user
-    checkAndNotifyMixedColumns();
-    
-    // Check for similar columns that can be consolidated
-    checkAndNotifyConsolidation();
-
-    finalizeDataLoad();
-
-    // Hide progress bar after short delay
-    setTimeout(hideProgress, 500);
+    handleParsedCSV(headers, rows);
 }
 
 function parseCSVLine(line) {
@@ -1287,7 +1461,7 @@ function parseCSVLine(line) {
     let currentValue = '';
     let inQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
+        for (let i = 0; i < line.length; i++) {
         const char = line[i];
         const nextChar = line[i + 1];
 
@@ -1391,6 +1565,22 @@ function autoMapFields() {
     
     fieldMapping = {};
     const outputFields = OUTPUT_PROFILES[currentProfile].fields;
+
+    // Pass 1: exact case-sensitive match of header names
+    outputFields.forEach(of => {
+        if (inputHeaders.includes(of)) {
+            fieldMapping[of] = { column: of, source: 'auto' };
+        }
+    });
+
+    // Pass 2: exact case-insensitive match if still not mapped
+    outputFields.forEach(of => {
+        if (fieldMapping[of]) return;
+        const idx = inputHeaders.findIndex(h => normalizeName(h) === normalizeName(of));
+        if (idx >= 0) {
+            fieldMapping[of] = { column: inputHeaders[idx], source: 'auto' };
+        }
+    });
 
     // Special case: If both "Student" and "Parent" columns exist, map Parent to Full Name
     const hasStudentColumn = inputHeaders.some(h => h.toLowerCase().trim() === 'student');
@@ -1595,6 +1785,10 @@ function refreshPreview() {
     renderPreviewHeaders();
     setupVirtualScroll();
     renderInlinePreviews();
+    renderInlineQuality();
+    renderRowProbe();
+    renderFilterTags();
+    refreshFilterSummary();
 }
 
 /**
@@ -1639,20 +1833,39 @@ function renderInlinePreview(target) {
     headEl.innerHTML = '';
     bodyEl.innerHTML = '';
 
+    // Determine data source for inline preview
+    let localHeaders = previewHeaders.slice();
+    let localRows = previewData.slice();
+
+    if (useSheetWiseMapping && excelSheets.length > 0 && excelSheets[currentSheetIndex]) {
+        const activeSheet = excelSheets[currentSheetIndex];
+        if (previewMode === 'raw') {
+            localHeaders = activeSheet.headers.slice();
+            localRows = activeSheet.data.slice();
+        } else {
+            // Transformed: build a small transformed subset for the active sheet only
+            const transformed = getTransformedPreviewForSheet(currentSheetIndex, 50); // transform up to 50 rows to stabilize headers
+            localRows = transformed.rows;
+            localHeaders = transformed.headers;
+        }
+    }
+
+    // Build header
     const headerRow = document.createElement('tr');
-    previewHeaders.forEach(h => {
+    localHeaders.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         headerRow.appendChild(th);
     });
     headEl.appendChild(headerRow);
 
-    const limit = Math.min(10, previewData.length);
+    // Build body (limit to 10 rows)
+    const limit = Math.min(10, localRows.length);
     for (let i = 0; i < limit; i++) {
         const tr = document.createElement('tr');
-        previewHeaders.forEach(h => {
+        localHeaders.forEach(h => {
             const td = document.createElement('td');
-            const value = previewData[i]?.[h] || '';
+            const value = localRows[i]?.[h] || '';
             td.textContent = value;
             tr.appendChild(td);
         });
@@ -1670,6 +1883,171 @@ function renderInlinePreview(target) {
 
     // Sync column widths after render
     requestAnimationFrame(() => syncInlinePreviewWidths(target));
+}
+
+// Build transformed preview rows for a specific sheet (limited for inline preview)
+function getTransformedPreviewForSheet(sheetIndex, limit = 50) {
+    const sheet = excelSheets[sheetIndex];
+    if (!sheet) return { headers: previewHeaders.slice(), rows: [] };
+
+    const outputFields = OUTPUT_PROFILES[currentProfile].fields;
+    const useSmartParsing = smartColumnParsingCheckbox.checked;
+    const useConsolidation = consolidateColumnsCheckbox.checked;
+    const shouldInferCompany = autoInferCompanyCheckbox.checked;
+    const shouldInferTitle = autoInferTitleCheckbox.checked;
+    const shouldClassify = classifyContactsCheckbox.checked;
+    const globalTags = globalTagsInput.value;
+    const source = sourceFieldInput.value;
+
+    // Use global analyses for mixed/consolidation
+    const mixedColumns = useSmartParsing ? analyzeMixedColumns() : {};
+    const similarColumns = useConsolidation ? findSimilarColumns() : {};
+
+    const rows = sheet.data.slice(0, Math.min(limit, sheet.data.length));
+    const transformedRows = rows.map(inputRow => {
+        const workingRow = useConsolidation ? consolidateRowData(inputRow, similarColumns) : inputRow;
+        const mappedRow = {};
+
+        const currentMapping = (useSheetWiseMapping && sheet.mapping) ? sheet.mapping : fieldMapping;
+        outputFields.forEach(field => {
+            const mapping = currentMapping[field];
+            const inputField = mapping ? mapping.column : null;
+            let value = inputField ? (workingRow[inputField] || '') : '';
+            if (!value && useConsolidation) {
+                const fieldLower = field.toLowerCase();
+                for (const [groupName, consolidatedValue] of Object.entries(workingRow)) {
+                    if (groupName.startsWith('_consolidated_') && consolidatedValue) {
+                        const groupType = groupName.replace('_consolidated_', '');
+                        if (fieldLower.includes(groupType) || groupType.includes(fieldLower.replace(/[^a-z]/g, ''))) {
+                            value = consolidatedValue; break;
+                        }
+                    }
+                }
+            }
+            mappedRow[field] = value;
+        });
+
+        if (useSmartParsing && Object.keys(mixedColumns).length > 0) {
+            Object.keys(mixedColumns).forEach(mixedColumn => {
+                const value = inputRow[mixedColumn];
+                if (value && value.trim()) {
+                    if (isEmail(value)) {
+                        if ('EMail' in mappedRow && !mappedRow['EMail']) mappedRow['EMail'] = value;
+                        else if ('Email' in mappedRow && !mappedRow['Email']) mappedRow['Email'] = value;
+                        else if ('email' in mappedRow && !mappedRow['email']) mappedRow['email'] = value;
+                    } else if (isPhoneNumber(value)) {
+                        if ('Phone' in mappedRow && !mappedRow['Phone']) mappedRow['Phone'] = value;
+                        else if ('Mobile' in mappedRow && !mappedRow['Mobile']) mappedRow['Mobile'] = value;
+                        else if ('phone' in mappedRow && !mappedRow['phone']) mappedRow['phone'] = value;
+                    }
+                }
+            });
+        }
+
+        // Name handling
+        const nameOptions = sheet.nameOptions || { splitFullName: true, fullNameIsCompany: false };
+        const detectFullNameSource = (obj) => {
+            const keys = Object.keys(obj || {});
+            let best = '';
+            for (const k of keys) {
+                const nk = k.toLowerCase();
+                if (nk.includes('name') && !nk.includes('first') && !nk.includes('last') && !nk.includes('middle')) {
+                    const val = String(obj[k] || '').trim();
+                    if (val && val.length > best.length) best = val;
+                }
+                if ((nk.includes('contact') || nk.includes('attendee') || nk.includes('poc')) && !best) {
+                    const val = String(obj[k] || '').trim();
+                    if (val) best = val;
+                }
+            }
+            return best;
+        };
+        let fullNameSource = mappedRow['Full Name'] || detectFullNameSource(workingRow);
+        if (!mappedRow['First Name'] && !mappedRow['Last Name'] && fullNameSource) {
+            const full = fullNameSource;
+            if (nameOptions.fullNameIsCompany || isOrganizationName(full)) {
+                if ('Company' in mappedRow && !mappedRow['Company']) mappedRow['Company'] = full;
+                if ('Organization' in mappedRow && !mappedRow['Organization']) mappedRow['Organization'] = full;
+            }
+            if (nameOptions.splitFullName && !isOrganizationName(full)) {
+                const { firstName, lastName } = splitFullName(full);
+                if ('First Name' in mappedRow) mappedRow['First Name'] = firstName;
+                if ('Last Name' in mappedRow) mappedRow['Last Name'] = lastName;
+            }
+        }
+        const combinedName = (mappedRow['Full Name'] || fullNameSource || `${mappedRow['First Name'] || ''} ${mappedRow['Last Name'] || ''}`).trim();
+        if (combinedName && (nameOptions.fullNameIsCompany || isOrganizationName(combinedName))) {
+            if ('Company' in mappedRow && !mappedRow['Company']) mappedRow['Company'] = combinedName;
+            if ('Organization' in mappedRow && !mappedRow['Organization']) mappedRow['Organization'] = combinedName;
+        }
+        if ('Full Name' in mappedRow && !mappedRow['Full Name'] && combinedName) {
+            mappedRow['Full Name'] = combinedName;
+        }
+
+        const email = mappedRow['EMail'] || mappedRow['Email'] || '';
+        if (shouldInferCompany && email) {
+            const companyField = mappedRow['Company'] || mappedRow['Account Name'];
+            if (!companyField) {
+                const inferredCompany = inferCompany(email);
+                if (inferredCompany) {
+                    if ('Company' in mappedRow) mappedRow['Company'] = inferredCompany;
+                    if ('Account Name' in mappedRow) mappedRow['Account Name'] = inferredCompany;
+                }
+            }
+        }
+        if (shouldInferTitle && email) {
+            const inferredTitle = inferTitle(email);
+            if (inferredTitle && 'Title' in mappedRow && !mappedRow['Title']) mappedRow['Title'] = inferredTitle;
+        }
+        if (shouldClassify) {
+            const classification = classifyContact(email, mappedRow['Company'] || '');
+            if (classification && 'Private' in mappedRow) mappedRow['Private'] = classification === 'Individual' ? 'Yes' : 'No';
+        }
+
+        // Tags/Source
+        const rowTags = [];
+        if (globalTags) rowTags.push(globalTags);
+        if (sheet.tag) rowTags.push(sheet.tag);
+        const mergedTags = mergeTags(...rowTags);
+        if (!('Tags' in mappedRow)) {
+            mappedRow['Tags'] = mergedTags;
+        } else {
+            mappedRow['Tags'] = mergedTags;
+        }
+        if (!('Source' in mappedRow)) {
+            mappedRow['Source'] = source;
+        } else {
+            mappedRow['Source'] = source;
+        }
+        if ('Lead Source' in mappedRow && source) mappedRow['Lead Source'] = source;
+
+        // Cleaning
+        if ('EMail' in mappedRow) mappedRow['EMail'] = cleanEmail(mappedRow['EMail']);
+        if ('Email' in mappedRow) mappedRow['Email'] = cleanEmail(mappedRow['Email']);
+        if ('Email 2' in mappedRow) mappedRow['Email 2'] = cleanEmail(mappedRow['Email 2']);
+        if ('Phone' in mappedRow) mappedRow['Phone'] = cleanPhone(mappedRow['Phone']);
+        if ('Mobile' in mappedRow) mappedRow['Mobile'] = cleanPhone(mappedRow['Mobile']);
+        if ('Fax' in mappedRow) mappedRow['Fax'] = cleanPhone(mappedRow['Fax']);
+        if ('Date Of Birth' in mappedRow) mappedRow['Date Of Birth'] = cleanDateOfBirth(mappedRow['Date Of Birth']);
+        if ('Date of Birth' in mappedRow) mappedRow['Date of Birth'] = cleanDateOfBirth(mappedRow['Date of Birth']);
+        if ('Priority' in mappedRow) mappedRow['Priority'] = cleanPriority(mappedRow['Priority']);
+        if ('Private' in mappedRow) mappedRow['Private'] = cleanPrivate(mappedRow['Private']);
+
+        // Include extra unmapped input headers if option enabled
+        if (includeExtraCheckbox.checked) {
+            const mappedInputFields = Object.values((useSheetWiseMapping ? sheet.mapping : fieldMapping)).map(m => m.column);
+            sheet.headers.forEach(header => {
+                if (!mappedInputFields.includes(header)) {
+                    mappedRow[header] = inputRow[header] || '';
+                }
+            });
+        }
+
+        return mappedRow;
+    });
+
+    const headers = transformedRows.length > 0 ? Object.keys(transformedRows[0]) : [];
+    return { headers, rows: transformedRows };
 }
 
 function syncInlinePreviewWidths(target) {
@@ -1701,6 +2079,218 @@ function syncInlinePreviewWidths(target) {
 function renderInlinePreviews() {
     if (mappingPreviewToggle.checked) renderInlinePreview('mapping');
     if (optionsPreviewToggle.checked) renderInlinePreview('options');
+}
+
+// Quality badges rendering based on current previewData/Headers
+function computeDataQuality(headers, rows) {
+    const total = rows.length || 1;
+    const metrics = {};
+    headers.forEach(h => {
+        let nonEmpty = 0;
+        let valid = 0;
+        let checks = 0;
+        const lower = h.toLowerCase();
+        const isEmailCol = ['email', 'e-mail', 'mail'].some(k => lower.includes(k));
+        const isPhoneCol = ['phone', 'mobile', 'tel', 'contact'].some(k => lower.includes(k));
+        for (const r of rows) {
+            const v = (r && r[h] != null) ? String(r[h]) : '';
+            if (v.trim() !== '') nonEmpty++;
+            if (isEmailCol) { checks++; if (isEmail(v)) valid++; }
+            if (isPhoneCol) { checks++; if (isPhoneNumber(v)) valid++; }
+        }
+        const completeness = Math.round((nonEmpty / total) * 100);
+        const validity = checks > 0 ? Math.round((valid / checks) * 100) : null;
+        metrics[h] = { completeness, validity };
+    });
+    return metrics;
+}
+
+function renderQualityBadges(target) {
+    const container = target === 'mapping' ? mappingQuality : optionsQuality;
+    const badgesEl = target === 'mapping' ? mappingQualityBadges : optionsQualityBadges;
+    if (!container || !badgesEl) return;
+    const rows = previewData.slice(0, 1000);
+    const m = computeDataQuality(previewHeaders, rows);
+    badgesEl.innerHTML = '';
+    previewHeaders.forEach(h => {
+        const info = m[h] || {};
+        const pill = document.createElement('span');
+        pill.className = 'pill';
+        let text = `${h}: ${info.completeness ?? 0}% filled`;
+        if (info.validity != null) text += ` • ${info.validity}% valid`;
+        pill.textContent = text;
+        if ((info.completeness ?? 0) < 60) pill.classList.add('warn');
+        if (info.validity != null && info.validity < 60) pill.classList.add('error');
+        badgesEl.appendChild(pill);
+    });
+    container.style.display = 'block';
+}
+
+function renderInlineQuality() {
+    if (mappingPreviewToggle.checked) renderQualityBadges('mapping'); else if (mappingQuality) mappingQuality.style.display = 'none';
+    if (optionsPreviewToggle.checked) renderQualityBadges('options'); else if (optionsQuality) optionsQuality.style.display = 'none';
+}
+
+// Row probe helpers
+function buildMappedRowForProbe(inputRow) {
+    const outputFields = OUTPUT_PROFILES[currentProfile].fields;
+    let currentMapping = fieldMapping;
+    if (useSheetWiseMapping && inputRow && inputRow._SheetTag) {
+        const sheet = excelSheets.find(s => s.tag === inputRow._SheetTag);
+        if (sheet && sheet.mapping) currentMapping = sheet.mapping;
+    }
+    const useConsolidation = consolidateColumnsCheckbox.checked;
+    const similarColumns = useConsolidation ? findSimilarColumns() : {};
+    const workingRow = useConsolidation ? consolidateRowData(inputRow, similarColumns) : inputRow;
+    const mapped = {};
+    outputFields.forEach(field => {
+        const mapping = currentMapping[field];
+        const inputField = mapping ? mapping.column : null;
+        let value = inputField ? (workingRow[inputField] || '') : '';
+        if (!value && useConsolidation) {
+            const fieldLower = field.toLowerCase();
+            for (const [groupName, consolidatedValue] of Object.entries(workingRow)) {
+                if (groupName.startsWith('_consolidated_') && consolidatedValue) {
+                    const groupType = groupName.replace('_consolidated_', '');
+                    if (fieldLower.includes(groupType) || groupType.includes(fieldLower.replace(/[^a-z]/g, ''))) {
+                        value = consolidatedValue; break;
+                    }
+                }
+            }
+        }
+        mapped[field] = value;
+    });
+    return mapped;
+}
+
+function transformRowForProbe(inputRow) {
+    const mapped = buildMappedRowForProbe(inputRow);
+    const useSmartParsing = smartColumnParsingCheckbox.checked;
+    const shouldInferCompany = autoInferCompanyCheckbox.checked;
+    const shouldInferTitle = autoInferTitleCheckbox.checked;
+    const shouldClassify = classifyContactsCheckbox.checked;
+
+    if (useSmartParsing) {
+        const mixedColumns = analyzeMixedColumns();
+        Object.keys(mixedColumns).forEach(mixedColumn => {
+            const value = inputRow[mixedColumn];
+            if (value && value.trim()) {
+                if ('EMail' in mapped && !mapped['EMail'] && isEmail(value)) mapped['EMail'] = value;
+                else if ('Email' in mapped && !mapped['Email'] && isEmail(value)) mapped['Email'] = value;
+                else if ('email' in mapped && !mapped['email'] && isEmail(value)) mapped['email'] = value;
+                if ('Phone' in mapped && !mapped['Phone'] && isPhoneNumber(value)) mapped['Phone'] = value;
+                else if ('Mobile' in mapped && !mapped['Mobile'] && isPhoneNumber(value)) mapped['Mobile'] = value;
+                else if ('phone' in mapped && !mapped['phone'] && isPhoneNumber(value)) mapped['phone'] = value;
+            }
+        });
+    }
+
+    let nameOptions = { splitFullName: true, fullNameIsCompany: false };
+    if (useSheetWiseMapping && inputRow._SheetTag) {
+        const sheet = excelSheets.find(s => s.tag === inputRow._SheetTag);
+        if (sheet && sheet.nameOptions) nameOptions = sheet.nameOptions;
+    } else if (!useSheetWiseMapping && excelSheets.length > 0) {
+        if (excelSheets[0].nameOptions) nameOptions = excelSheets[0].nameOptions;
+    }
+    // Try to get a full name source if 'Full Name' isn't present
+    const detectFullNameSource = (obj) => {
+        const keys = Object.keys(obj || {});
+        let best = '';
+        for (const k of keys) {
+            const nk = k.toLowerCase();
+            if (nk.includes('name') && !nk.includes('first') && !nk.includes('last') && !nk.includes('middle')) {
+                const val = String(obj[k] || '').trim();
+                if (val && val.length > best.length) best = val;
+            }
+            if ((nk.includes('contact') || nk.includes('attendee') || nk.includes('poc')) && !best) {
+                const val = String(obj[k] || '').trim();
+                if (val) best = val;
+            }
+        }
+        return best;
+    };
+    let fullNameSource = mapped['Full Name'] || detectFullNameSource(inputRow);
+
+    if (!mapped['First Name'] && !mapped['Last Name'] && fullNameSource) {
+        const full = fullNameSource;
+        if (nameOptions.fullNameIsCompany || isOrganizationName(full)) {
+            if ('Company' in mapped && !mapped['Company']) mapped['Company'] = full;
+            if ('Organization' in mapped && !mapped['Organization']) mapped['Organization'] = full;
+            if ('Account Name' in mapped && !mapped['Account Name']) mapped['Account Name'] = full;
+        }
+        if (nameOptions.splitFullName && !isOrganizationName(full)) {
+            const { firstName, lastName } = splitFullName(full);
+            mapped['First Name'] = firstName;
+            mapped['Last Name'] = lastName;
+        }
+    }
+    const combinedName = (mapped['Full Name'] || fullNameSource || `${mapped['First Name'] || ''} ${mapped['Last Name'] || ''}`).trim();
+    if (combinedName && (nameOptions.fullNameIsCompany || isOrganizationName(combinedName))) {
+        if ('Company' in mapped && !mapped['Company']) mapped['Company'] = combinedName;
+        if ('Organization' in mapped && !mapped['Organization']) mapped['Organization'] = combinedName;
+        if ('Account Name' in mapped && !mapped['Account Name']) mapped['Account Name'] = combinedName;
+    }
+
+    const email = mapped['EMail'] || mapped['Email'] || '';
+    if (shouldInferCompany && email) {
+        const companyField = mapped['Company'] || mapped['Account Name'];
+        if (!companyField) {
+            const inferredCompany = inferCompany(email);
+            if (inferredCompany) {
+                if ('Company' in mapped) mapped['Company'] = inferredCompany;
+                if ('Account Name' in mapped) mapped['Account Name'] = inferredCompany;
+            }
+        }
+    }
+    if (shouldInferTitle && email) {
+        const inferredTitle = inferTitle(email);
+        if (inferredTitle && 'Title' in mapped && !mapped['Title']) mapped['Title'] = inferredTitle;
+    }
+    if (shouldClassify) {
+        const classification = classifyContact(email, mapped['Company'] || '');
+        if (classification && 'Private' in mapped) mapped['Private'] = classification === 'Individual' ? 'Yes' : 'No';
+    }
+    return mapped;
+}
+
+function renderKeyValueTable(obj) {
+    const table = document.createElement('table');
+    const tbody = document.createElement('tbody');
+    Object.entries(obj).forEach(([k, v]) => {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = k;
+        const td2 = document.createElement('td'); td2.textContent = v ?? '';
+        tr.appendChild(td1); tr.appendChild(td2);
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+}
+
+function renderRowProbe() {
+    if (!rowProbe || !rowProbeIndex) return;
+    // Choose dataset: current sheet data if sheet-wise mapping is active; else merged inputData
+    let dataset = inputData;
+    if (useSheetWiseMapping && excelSheets.length > 0 && excelSheets[currentSheetIndex]) {
+        dataset = excelSheets[currentSheetIndex].data || [];
+    }
+    if (!dataset || dataset.length === 0) { rowProbe.style.display = 'none'; return; }
+    const idx = Math.max(1, Math.min(parseInt(rowProbeIndex.value || '1', 10), dataset.length)) - 1;
+    rowProbeIndex.max = dataset.length;
+    // If using per-sheet data, augment with _SheetTag so downstream uses correct mapping/options
+    const baseRaw = dataset[idx] || {};
+    const raw = (useSheetWiseMapping && excelSheets[currentSheetIndex])
+        ? { ...baseRaw, _SheetTag: excelSheets[currentSheetIndex].tag }
+        : baseRaw;
+    const mapped = buildMappedRowForProbe(raw);
+    const transformed = transformRowForProbe(raw);
+    if (probeRaw) probeRaw.innerHTML = '';
+    if (probeMapped) probeMapped.innerHTML = '';
+    if (probeTransformed) probeTransformed.innerHTML = '';
+    if (probeRaw) probeRaw.appendChild(renderKeyValueTable(raw));
+    if (probeMapped) probeMapped.appendChild(renderKeyValueTable(mapped));
+    if (probeTransformed) probeTransformed.appendChild(renderKeyValueTable(transformed));
+    rowProbe.style.display = 'block';
 }
 
 /**
@@ -2306,6 +2896,61 @@ function mergeTags(...tagArrays) {
     return uniqueTags.join(', ');
 }
 
+// Parse comma-separated lists to normalized lowercase tokens
+function parseCommaList(str) {
+    if (!str) return [];
+    return str
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(s => s.toLowerCase());
+}
+
+const PREDEFINED_TAGS = ['VIP', 'Event', 'Web', 'Partner', 'Newsletter', 'Trial', 'Customer', 'Lead', 'Prospect', 'Duplicate'];
+
+function collectTagsFromData(rows) {
+    const seen = new Map();
+    if (!Array.isArray(rows)) return [];
+    rows.forEach(row => {
+        const tagField = row?.Tags;
+        if (!tagField) return;
+        String(tagField).split(',').forEach(token => {
+            const raw = token.trim();
+            if (!raw) return;
+            const key = raw.toLowerCase();
+            if (!seen.has(key)) seen.set(key, raw);
+        });
+    });
+    return Array.from(seen.values());
+}
+
+function renderFilterTags(rowsForTags) {
+    if (!filterTagsContainer) return;
+    const sourceRows = Array.isArray(rowsForTags) ? rowsForTags : getCurrentTransformedData();
+    const existingSelection = new Set(Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value));
+    const dataTags = collectTagsFromData(sourceRows);
+    const combined = [...new Set([...PREDEFINED_TAGS, ...dataTags])];
+    combined.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+
+    filterTagsContainer.innerHTML = '';
+    combined.forEach(tag => {
+        const id = `flt_${tag.replace(/[^a-z0-9]/gi, '_')}`;
+        const label = document.createElement('label');
+        label.className = 'filter-tag-pill';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = tag;
+        input.id = id;
+        input.checked = existingSelection.has(tag);
+        input.addEventListener('change', () => refreshFilterSummary());
+        const span = document.createElement('span');
+        span.textContent = tag;
+        label.appendChild(input);
+        label.appendChild(span);
+        filterTagsContainer.appendChild(label);
+    });
+}
+
 function transformData() {
     const globalTags = globalTagsInput.value;
     const source = sourceFieldInput.value;
@@ -2400,25 +3045,55 @@ function transformData() {
             // Use first sheet's options for single-sheet/CSV flows
             if (excelSheets[0].nameOptions) nameOptions = excelSheets[0].nameOptions;
         }
+        // Try to find a usable full name string even if 'Full Name' isn't an output field
+        const detectFullNameSource = (obj) => {
+            // Prefer keys that contain 'name' but not 'first/last/middle'
+            const keys = Object.keys(obj || {});
+            let best = '';
+            for (const k of keys) {
+                const nk = k.toLowerCase();
+                if (nk.includes('name') && !nk.includes('first') && !nk.includes('last') && !nk.includes('middle')) {
+                    const val = String(obj[k] || '').trim();
+                    if (val && val.length > best.length) best = val;
+                }
+                if ((nk.includes('contact') || nk.includes('attendee') || nk.includes('poc')) && !best) {
+                    const val = String(obj[k] || '').trim();
+                    if (val) best = val;
+                }
+            }
+            return best;
+        };
 
-        if (!outputRow['First Name'] && !outputRow['Last Name'] && outputRow['Full Name']) {
-            const full = outputRow['Full Name'];
+        let fullNameSource = outputRow['Full Name'] || '';
+        if (!fullNameSource) {
+            // Use consolidated/working input (pre-mapping) if available
+            fullNameSource = detectFullNameSource(workingRow);
+        }
+
+        if (!outputRow['First Name'] && !outputRow['Last Name'] && fullNameSource) {
+            const full = fullNameSource;
             if (nameOptions.fullNameIsCompany || isOrganizationName(full)) {
                 if ('Company' in outputRow && !outputRow['Company']) outputRow['Company'] = full;
                 if ('Organization' in outputRow && !outputRow['Organization']) outputRow['Organization'] = full;
+                if ('Account Name' in outputRow && !outputRow['Account Name']) outputRow['Account Name'] = full;
             }
             if (nameOptions.splitFullName && !isOrganizationName(full)) {
                 const { firstName, lastName } = splitFullName(full);
-                outputRow['First Name'] = firstName;
-                outputRow['Last Name'] = lastName;
+                if ('First Name' in outputRow) outputRow['First Name'] = firstName;
+                if ('Last Name' in outputRow) outputRow['Last Name'] = lastName;
             }
         }
 
-        // If the combined name still looks like an organization/club, ensure it populates company/org fields
-        const combinedName = (outputRow['Full Name'] || `${outputRow['First Name'] || ''} ${outputRow['Last Name'] || ''}`).trim();
+        // Derive a combined name for company/org fallback and to optionally fill 'Full Name' if present
+        const combinedName = (outputRow['Full Name'] || fullNameSource || `${outputRow['First Name'] || ''} ${outputRow['Last Name'] || ''}`).trim();
         if (combinedName && (nameOptions.fullNameIsCompany || isOrganizationName(combinedName))) {
             if ('Company' in outputRow && !outputRow['Company']) outputRow['Company'] = combinedName;
             if ('Organization' in outputRow && !outputRow['Organization']) outputRow['Organization'] = combinedName;
+            if ('Account Name' in outputRow && !outputRow['Account Name']) outputRow['Account Name'] = combinedName;
+        }
+        // If 'Full Name' is an output and still empty, populate it from derived name
+        if ('Full Name' in outputRow && !outputRow['Full Name'] && combinedName) {
+            outputRow['Full Name'] = combinedName;
         }
 
         // Get email field (different profiles use different field names)
@@ -2469,9 +3144,20 @@ function transformData() {
             rowTags.push('Individual');
         }
 
-        // Add tags if field exists in profile
-        if ('Tags' in outputRow) outputRow['Tags'] = mergeTags(...rowTags);
-        if ('Source' in outputRow) outputRow['Source'] = source;
+        const mergedTags = mergeTags(...rowTags);
+        // Ensure Tags field exists even if not part of current profile, so it shows in output
+        if (!('Tags' in outputRow)) {
+            outputRow['Tags'] = mergedTags;
+        } else {
+            outputRow['Tags'] = mergedTags;
+        }
+
+        // Ensure Source/Lead Source are populated even if not native to profile
+        if (!('Source' in outputRow)) {
+            outputRow['Source'] = source;
+        } else {
+            outputRow['Source'] = source;
+        }
         if ('Lead Source' in outputRow && source) outputRow['Lead Source'] = source;
 
         // Clean email fields
@@ -2523,6 +3209,90 @@ function updateDuplicateCount() {
     } else {
         duplicateCountSpan.textContent = '';
     }
+}
+
+// ===== FILTERED EXPORT FUNCTIONS =====
+
+function getCurrentTransformedData() {
+    // Prefer already-built transformed preview when available
+    if (previewMode === 'transformed' && Array.isArray(previewData)) {
+        return previewData;
+    }
+    return transformData();
+}
+
+function rowMatchesFilters(row, requiredTags, allowedSources) {
+    const rowTags = (row?.Tags || '')
+        .split(',')
+        .map(t => t.trim().toLowerCase())
+        .filter(Boolean);
+    const hasAllTags = requiredTags.every(tag => rowTags.includes(tag));
+
+    const sourceVal = (row?.Source || row?.['Lead Source'] || '').toString().trim().toLowerCase();
+    const sourceOk = allowedSources.length === 0 || allowedSources.includes(sourceVal);
+
+    return hasAllTags && sourceOk;
+}
+
+function getSelectedTags() {
+    if (!filterTagsContainer) return [];
+    return Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value.toLowerCase());
+}
+
+function filterTransformedRows() {
+    const requiredTags = getSelectedTags();
+    const allowedSources = parseCommaList(filterSourcesInput?.value || '');
+
+    const data = getCurrentTransformedData();
+    const filtered = data.filter(row => rowMatchesFilters(row, requiredTags, allowedSources));
+
+    return { filtered, requiredTags, allowedSources };
+}
+
+function refreshFilterSummary() {
+    if (!filterMatchCount || !downloadFilteredBtn) return;
+    const { filtered } = filterTransformedRows();
+    filterMatchCount.textContent = `${filtered.length.toLocaleString()} rows match`;
+    downloadFilteredBtn.disabled = filtered.length === 0;
+}
+
+function downloadFilteredOutput() {
+    const format = (filterExportFormatSelect && filterExportFormatSelect.value) || exportFormatSelect.value || 'csv';
+    showProgress('Building filtered output...', 0, 100);
+
+    setTimeout(() => {
+        const { filtered } = filterTransformedRows();
+        if (!filtered.length) {
+            hideProgress();
+            showNotification('No rows match the selected tags/sources');
+            return;
+        }
+
+        updateProgress(60, 100);
+        const ts = new Date().getTime();
+
+        // Build strict rows: only current profile fields, excluding Tags/Source
+        const fields = getOutputFields().filter(f => f !== 'Tags' && f !== 'Source');
+        const strictRows = filtered.map(r => {
+            const o = {};
+            fields.forEach(f => { o[f] = r[f] || ''; });
+            return o;
+        });
+
+        if (format === 'csv') {
+            const csv = convertToCSV(strictRows);
+            updateProgress(90, 100);
+            downloadFile(csv, `campaigns_filtered_${ts}.csv`, 'text/csv;charset=utf-8;');
+        } else if (format === 'xlsx') {
+            exportToXLSX(strictRows);
+        } else if (format === 'json') {
+            const json = JSON.stringify(strictRows, null, 2);
+            updateProgress(90, 100);
+            downloadFile(json, `campaigns_filtered_${ts}.json`, 'application/json;charset=utf-8;');
+        }
+
+        setTimeout(hideProgress, 400);
+    }, 30);
 }
 
 function convertToCSV(data) {
