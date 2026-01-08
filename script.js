@@ -2006,6 +2006,13 @@ function getTransformedPreviewForSheet(sheetIndex, limit = 50) {
 
         // Tags/Source
         const rowTags = [];
+        
+        // FIRST: Preserve existing tags from input row
+        const existingTags = inputRow['Tags'] || inputRow['tags'] || '';
+        if (existingTags && existingTags.trim()) {
+            rowTags.push(existingTags);
+        }
+        
         if (globalTags) rowTags.push(globalTags);
         if (sheet.tag) rowTags.push(sheet.tag);
         const mergedTags = mergeTags(...rowTags);
@@ -2927,7 +2934,7 @@ function collectTagsFromData(rows) {
 function renderFilterTags(rowsForTags) {
     if (!filterTagsContainer) return;
     const sourceRows = Array.isArray(rowsForTags) ? rowsForTags : getCurrentTransformedData();
-    const existingSelection = new Set(Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value));
+    const existingSelection = new Set(Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value.toLowerCase()));
     const dataTags = collectTagsFromData(sourceRows);
     const combined = [...new Set([...PREDEFINED_TAGS, ...dataTags])];
     combined.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
@@ -2939,12 +2946,12 @@ function renderFilterTags(rowsForTags) {
         label.className = 'filter-tag-pill';
         const input = document.createElement('input');
         input.type = 'checkbox';
-        input.value = tag;
+        input.value = tag.toLowerCase(); // Store lowercase for consistent comparison
         input.id = id;
-        input.checked = existingSelection.has(tag);
+        input.checked = existingSelection.has(tag.toLowerCase());
         input.addEventListener('change', () => refreshFilterSummary());
         const span = document.createElement('span');
-        span.textContent = tag;
+        span.textContent = tag; // Display original case
         label.appendChild(input);
         label.appendChild(span);
         filterTagsContainer.appendChild(label);
@@ -3124,6 +3131,13 @@ function transformData() {
         }
 
         const rowTags = [];
+        
+        // FIRST: Preserve existing tags from input row
+        const existingTags = inputRow['Tags'] || inputRow['tags'] || '';
+        if (existingTags && existingTags.trim()) {
+            rowTags.push(existingTags);
+        }
+        
         if (globalTags) {
             rowTags.push(globalTags);
         }
@@ -3222,7 +3236,8 @@ function getCurrentTransformedData() {
 }
 
 function rowMatchesFilters(row, requiredTags, allowedSources) {
-    const rowTags = (row?.Tags || '')
+    const rowTagsRaw = row?.Tags || '';
+    const rowTags = rowTagsRaw
         .split(',')
         .map(t => t.trim().toLowerCase())
         .filter(Boolean);
@@ -3231,12 +3246,31 @@ function rowMatchesFilters(row, requiredTags, allowedSources) {
     const sourceVal = (row?.Source || row?.['Lead Source'] || '').toString().trim().toLowerCase();
     const sourceOk = allowedSources.length === 0 || allowedSources.includes(sourceVal);
 
+    // Always log first 5 rows to debug
+    const shouldLog = !window.__filterDebugCount || window.__filterDebugCount < 5;
+    if (shouldLog) {
+        if (!window.__filterDebugCount) window.__filterDebugCount = 0;
+        window.__filterDebugCount++;
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('Row Tags RAW:', JSON.stringify(rowTagsRaw));
+        console.log('Row Tags PARSED:', JSON.stringify(rowTags));
+        console.log('Required Tags:', JSON.stringify(requiredTags));
+        console.log('Has All Tags?', hasAllTags);
+        requiredTags.forEach(rt => {
+            console.log(`  - "${rt}" in row? ${rowTags.includes(rt)}`);
+        });
+        console.log('Source:', JSON.stringify(sourceVal));
+        console.log('Allowed Sources:', JSON.stringify(allowedSources));
+        console.log('Source OK?', sourceOk);
+        console.log('>>> FINAL MATCH:', hasAllTags && sourceOk);
+    }
+
     return hasAllTags && sourceOk;
 }
 
 function getSelectedTags() {
     if (!filterTagsContainer) return [];
-    return Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value.toLowerCase());
+    return Array.from(filterTagsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 }
 
 function filterTransformedRows() {
@@ -3244,6 +3278,13 @@ function filterTransformedRows() {
     const allowedSources = parseCommaList(filterSourcesInput?.value || '');
 
     const data = getCurrentTransformedData();
+    console.log('═══════════════════════════════════');
+    console.log('FILTER SETUP:');
+    console.log('Required Tags:', JSON.stringify(requiredTags));
+    console.log('Allowed Sources:', JSON.stringify(allowedSources));
+    console.log('Total Rows:', data.length);
+    console.log('═══════════════════════════════════');
+    window.__filterDebugCount = 0; // Reset counter
     const filtered = data.filter(row => rowMatchesFilters(row, requiredTags, allowedSources));
 
     return { filtered, requiredTags, allowedSources };
