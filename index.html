@@ -49,14 +49,27 @@
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <p class="drop-text">Drag & drop your CSV file here</p>
+                <p class="drop-text">Drag & drop your CSV or Excel file here</p>
                 <p class="drop-text-or">or</p>
                 <button class="btn-browse" id="browseBtn">Browse Files</button>
-                <input type="file" id="fileInput" accept=".csv" hidden>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
             </div>
             <div class="file-info" id="fileInfo" style="display: none;">
                 <span class="file-name" id="fileName"></span>
                 <button class="btn-clear" id="clearFile">Clear</button>
+            </div>
+
+            <div class="sheet-tags-section" id="sheetTagsSection" style="display: none;">
+                <h3>Excel Sheets & Tags</h3>
+                <p class="sheet-tags-description">Each sheet will be tagged with its name. Edit tags as needed:</p>
+                <div class="sheet-mapping-option">
+                    <label class="sheet-mapping-toggle">
+                        <input type="checkbox" id="sheetWiseMappingCheckbox">
+                        <span>Enable sheet-wise field mapping (recommended for sheets with different fields)</span>
+                    </label>
+                </div>
+                <div class="sheet-tags-container" id="sheetTagsContainer">
+                </div>
             </div>
 
             <div class="progress-bar-container" id="progressBarContainer" style="display: none;">
@@ -135,6 +148,14 @@
                     <input type="checkbox" id="classifyContacts" checked>
                     <label for="classifyContacts">Classify as Business/Individual</label>
                 </div>
+                <div class="option-group checkbox-group">
+                    <input type="checkbox" id="smartColumnParsing" checked>
+                    <label for="smartColumnParsing">Auto-detect mixed columns (email/phone)</label>
+                </div>
+                <div class="option-group checkbox-group">
+                    <input type="checkbox" id="consolidateColumns" checked>
+                    <label for="consolidateColumns">Consolidate similar columns (recommended for large datasets)</label>
+                </div>
                 <div class="option-group">
                     <label>Handle Duplicates:</label>
                     <div class="radio-group">
@@ -153,6 +174,39 @@
                     </div>
                     <span class="duplicate-count" id="duplicateCount"></span>
                 </div>
+            </div>
+        </section>
+
+        <section class="mapping-section" id="mappingSection" style="display: none;">
+            <div class="mapping-header-bar">
+                <div class="mapping-title-group">
+                    <h2>Field Mapping</h2>
+                    <div class="sheet-selector-wrapper" id="sheetSelectorWrapper" style="display: none;">
+                        <label for="sheetSelector">Mapping for:</label>
+                        <select id="sheetSelector" class="sheet-selector">
+                        </select>
+                    </div>
+                </div>
+                <div class="preset-controls">
+                    <select id="presetSelect" class="preset-select">
+                        <option value="">-- Load Preset --</option>
+                    </select>
+                    <button class="btn-preset-save" id="savePresetBtn" title="Save current mapping as preset">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save Preset
+                    </button>
+                </div>
+            </div>
+            <div class="mapping-container">
+                <div class="mapping-header">
+                    <div class="mapping-col-output">Output Field</div>
+                    <div class="mapping-col-input">Map to Input Column</div>
+                </div>
+                <div class="mapping-body" id="mappingBody"></div>
             </div>
         </section>
 
@@ -188,32 +242,6 @@
                         <div class="preview-spacer-bottom" id="previewSpacerBottom"></div>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <section class="mapping-section" id="mappingSection" style="display: none;">
-            <div class="mapping-header-bar">
-                <h2>Field Mapping</h2>
-                <div class="preset-controls">
-                    <select id="presetSelect" class="preset-select">
-                        <option value="">-- Load Preset --</option>
-                    </select>
-                    <button class="btn-preset-save" id="savePresetBtn" title="Save current mapping as preset">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                        Save Preset
-                    </button>
-                </div>
-            </div>
-            <div class="mapping-container">
-                <div class="mapping-header">
-                    <div class="mapping-col-output">Output Field</div>
-                    <div class="mapping-col-input">Map to Input Column</div>
-                </div>
-                <div class="mapping-body" id="mappingBody"></div>
             </div>
         </section>
 

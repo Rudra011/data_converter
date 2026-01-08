@@ -350,6 +350,127 @@ h2 {
     box-shadow: 0 4px 10px rgba(166, 105, 96, 0.3);
 }
 
+/* Sheet Tags Section */
+.sheet-tags-section {
+    background: var(--section-bg);
+    padding: 30px 40px;
+    border-bottom: 1px solid #e5e7eb;
+    transition: background 0.3s ease;
+}
+
+.sheet-tags-section h3 {
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.sheet-tags-description {
+    color: var(--text-secondary);
+    margin: 0 0 20px 0;
+    font-size: 0.95rem;
+}
+
+.sheet-tags-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sheet-tag-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 240px 100px;
+    gap: 12px;
+    align-items: center;
+    background: var(--input-bg);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.3s ease;
+}
+
+.sheet-name-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sheet-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.sheet-tag-row:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.sheet-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: help;
+}
+
+.sheet-tag-input {
+    padding: 10px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.sheet-tag-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.sheet-row-count {
+    text-align: right;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.sheet-mapping-option {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--input-bg);
+    border-radius: 8px;
+    border: 2px solid #e0e7ff;
+}
+
+.sheet-mapping-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sheet-mapping-toggle input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--accent-primary);
+}
+
+.sheet-mapping-toggle span {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
 .options-section {
     background: var(--section-bg);
     transition: background 0.3s ease;
@@ -763,6 +884,52 @@ body.dark-mode .profile-field-count {
     gap: 15px;
 }
 
+.mapping-title-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.mapping-title-group h2 {
+    margin: 0;
+}
+
+.sheet-selector-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--input-bg);
+    border-radius: 8px;
+    border: 2px solid #e0e7ff;
+}
+
+.sheet-selector-wrapper label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.sheet-selector {
+    padding: 8px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+.sheet-selector:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
 .preset-controls {
     display: flex;
     gap: 12px;
@@ -1122,6 +1289,52 @@ body.dark-mode .progress-bar-container {
 body.dark-mode .file-name,
 body.dark-mode .progress-label {
     color: var(--text-primary);
+}
+
+body.dark-mode .sheet-tags-section {
+    background: var(--section-bg);
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-mode .sheet-tag-row {
+    background: var(--input-bg);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .sheet-tag-row:hover {
+    border-color: #667eea;
+}
+
+body.dark-mode .sheet-tag-input {
+    background: var(--container-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .sheet-tag-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+body.dark-mode .sheet-mapping-option {
+    background: var(--input-bg);
+    border-color: #4c5770;
+}
+
+body.dark-mode .sheet-selector-wrapper {
+    background: var(--input-bg);
+    border-color: #4c5770;
+}
+
+body.dark-mode .sheet-selector {
+    background: var(--container-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-mode .sheet-selector:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 body.dark-mode .options-section,

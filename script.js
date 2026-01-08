@@ -148,6 +148,12 @@ let inputHeaders = [];
 let inputData = [];
 let fieldMapping = {};
 
+// Multi-sheet Excel support
+let excelSheets = []; // Array of {name, tag, data, headers, mapping, nameOptions}
+let isMultiSheetExcel = false;
+let useSheetWiseMapping = false; // Toggle for sheet-wise vs unified mapping
+let currentSheetIndex = 0; // Currently selected sheet for mapping
+
 // Preview virtualization state
 let previewData = [];
 let previewHeaders = [];
@@ -178,6 +184,8 @@ const includeExtraCheckbox = document.getElementById('includeExtra');
 const autoInferCompanyCheckbox = document.getElementById('autoInferCompany');
 const autoInferTitleCheckbox = document.getElementById('autoInferTitle');
 const classifyContactsCheckbox = document.getElementById('classifyContacts');
+const smartColumnParsingCheckbox = document.getElementById('smartColumnParsing');
+const consolidateColumnsCheckbox = document.getElementById('consolidateColumns');
 const duplicateCountSpan = document.getElementById('duplicateCount');
 const outputProfileSelect = document.getElementById('outputProfile');
 const profileFieldCount = document.getElementById('profileFieldCount');
@@ -255,6 +263,8 @@ includeExtraCheckbox.addEventListener('change', refreshPreview);
 autoInferCompanyCheckbox.addEventListener('change', refreshPreview);
 autoInferTitleCheckbox.addEventListener('change', refreshPreview);
 classifyContactsCheckbox.addEventListener('change', refreshPreview);
+smartColumnParsingCheckbox.addEventListener('change', refreshPreview);
+consolidateColumnsCheckbox.addEventListener('change', refreshPreview);
 
 // Duplicate handling radio buttons
 document.querySelectorAll('input[name="duplicateHandling"]').forEach(radio => {
@@ -405,7 +415,10 @@ function updateUndoButton() {
 /**
  * Show a temporary notification message
  */
-function showNotification(message) {
+/**
+ * Show a temporary notification message
+ */
+function showNotification(message, duration = 2000) {
     const notification = document.createElement('div');
     notification.textContent = message;
     notification.style.cssText = `
@@ -419,13 +432,15 @@ function showNotification(message) {
         box-shadow: 0 4px 12px var(--shadow-color);
         z-index: 10000;
         animation: slideIn 0.3s ease-out;
+        max-width: 400px;
+        word-wrap: break-word;
     `;
     document.body.appendChild(notification);
     setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.3s';
         setTimeout(() => notification.remove(), 300);
-    }, 2000);
+    }, duration);
 }
 
 // ===== MAPPING PRESET FUNCTIONS =====
@@ -592,8 +607,14 @@ dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].name.endsWith('.csv')) {
-        handleFile(files[0]);
+    if (files.length > 0) {
+        const file = files[0];
+        const isValidFile = file.name.match(/\\.(csv|xlsx|xls)$/i);
+        if (isValidFile) {
+            handleFile(file);
+        } else {
+            alert('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
+        }
     }
 });
 
@@ -612,7 +633,7 @@ function handleFile(file) {
     dropZone.style.display = 'none';
     fileInfo.style.display = 'flex';
 
-    sourceFieldInput.value = file.name.replace('.csv', '');
+    sourceFieldInput.value = file.name.replace(/\.(csv|xlsx|xls)$/i, '');
 
     // Show progress for file reading
     showProgress('Reading file...', 0, 100);
@@ -623,11 +644,25 @@ function handleFile(file) {
             updateProgress(e.loaded, e.total);
         }
     };
+    
+    // Check file type
+    const isExcel = file.name.match(/\.(xlsx|xls)$/i);
+    
     reader.onload = (e) => {
-        const csv = e.target.result;
-        parseCSV(csv);
+        if (isExcel) {
+            parseExcel(e.target.result);
+        } else {
+            const csv = e.target.result;
+            parseCSV(csv);
+        }
     };
-    reader.readAsText(file);
+    
+    // Read as binary for Excel, text for CSV
+    if (isExcel) {
+        reader.readAsArrayBuffer(file);
+    } else {
+        reader.readAsText(file);
+    }
 }
 
 function clearFile() {
@@ -635,9 +670,15 @@ function clearFile() {
     inputHeaders = [];
     inputData = [];
     fieldMapping = {};
+    excelSheets = [];
+    isMultiSheetExcel = false;
+    useSheetWiseMapping = false;
+    currentSheetIndex = 0;
     fileInput.value = '';
     dropZone.style.display = 'block';
     fileInfo.style.display = 'none';
+    document.getElementById('sheetTagsSection').style.display = 'none';
+    document.getElementById('sheetSelectorWrapper').style.display = 'none';
     optionsSection.style.display = 'none';
     previewSection.style.display = 'none';
     mappingSection.style.display = 'none';
@@ -648,6 +689,329 @@ function clearFile() {
     previewHeaders = [];
     previewMode = 'transformed';
     previewViewMode.value = 'transformed';
+}
+
+function parseExcel(data) {
+    showProgress('Parsing Excel file...', 0, 100);
+
+    try {
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetNames = workbook.SheetNames;
+        
+        if (sheetNames.length === 0) {
+            hideProgress();
+            alert('No sheets found in Excel file.');
+            clearFile();
+            return;
+        }
+
+        // Check if multiple sheets exist
+        isMultiSheetExcel = sheetNames.length > 1;
+        excelSheets = [];
+        
+        // Process all sheets
+        for (let sheetIndex = 0; sheetIndex < sheetNames.length; sheetIndex++) {
+            const sheetName = sheetNames[sheetIndex];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            showProgress(`Processing sheet ${sheetIndex + 1}/${sheetNames.length}...`, 
+                        20 + (sheetIndex / sheetNames.length * 60), 100);
+            
+            // Convert to JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            
+            if (jsonData.length < 2) {
+                continue; // Skip empty sheets
+            }
+
+            // First row is headers
+            const headers = jsonData[0].map(h => String(h).trim()).filter(h => h);
+            
+            // Remaining rows are data
+            const sheetData = [];
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = {};
+                let hasData = false;
+                
+                for (let j = 0; j < headers.length; j++) {
+                    const value = jsonData[i][j];
+                    row[headers[j]] = value != null ? String(value).trim() : '';
+                    if (row[headers[j]]) hasData = true;
+                }
+                
+                // Only add row if it has at least one non-empty value
+                if (hasData) {
+                    sheetData.push(row);
+                }
+            }
+
+            if (sheetData.length > 0) {
+                excelSheets.push({
+                    name: sheetName,
+                    tag: sheetName, // Default tag is sheet name
+                    data: sheetData,
+                    headers: headers,
+                    mapping: {}, // Each sheet gets its own mapping
+                    nameOptions: {
+                        splitFullName: true,
+                        fullNameIsCompany: false
+                    }
+                });
+            }
+        }
+
+        if (excelSheets.length === 0) {
+            hideProgress();
+            alert('No data found in Excel file.');
+            clearFile();
+            return;
+        }
+
+        showProgress('Merging sheets...', 85, 100);
+
+        // Merge all sheets data and headers
+        mergeExcelSheets();
+
+        // Show sheet tags UI for any Excel (single or multiple sheets)
+        renderSheetTags();
+        document.getElementById('sheetTagsSection').style.display = 'block';
+
+        // Hide sheet-wise mapping toggle when only one sheet
+        const sheetMappingOption = document.querySelector('.sheet-mapping-option');
+        if (sheetMappingOption) {
+            if (excelSheets.length <= 1) {
+                sheetMappingOption.style.display = 'none';
+                useSheetWiseMapping = false;
+                const sheetWiseCheckbox = document.getElementById('sheetWiseMappingCheckbox');
+                if (sheetWiseCheckbox) sheetWiseCheckbox.checked = false;
+                const sheetSelectorWrapper = document.getElementById('sheetSelectorWrapper');
+                if (sheetSelectorWrapper) sheetSelectorWrapper.style.display = 'none';
+            } else {
+                sheetMappingOption.style.display = 'block';
+            }
+        }
+
+        showProgress('Setting up mapping...', 90, 100);
+
+        // Auto-map fields
+        autoMapFields();
+
+        // Show sections
+        optionsSection.style.display = 'block';
+        mappingSection.style.display = 'block';
+        previewSection.style.display = 'block';
+        exportSection.style.display = 'block';
+
+        // Render UI
+        renderMapping();
+        initializePreview();
+        
+        // Check for mixed columns and notify user
+        checkAndNotifyMixedColumns();
+        
+        // Check for similar columns that can be consolidated
+        checkAndNotifyConsolidation();
+
+        hideProgress();
+    } catch (error) {
+        hideProgress();
+        alert('Error parsing Excel file: ' + error.message);
+        console.error('Excel parsing error:', error);
+        clearFile();
+    }
+}
+
+/**
+ * Merge all Excel sheets into single dataset with tags
+ */
+function mergeExcelSheets() {
+    // Collect all unique headers from all sheets
+    const allHeadersSet = new Set();
+    excelSheets.forEach(sheet => {
+        sheet.headers.forEach(h => allHeadersSet.add(h));
+    });
+    inputHeaders = Array.from(allHeadersSet);
+    
+    // Merge all data with sheet tags
+    inputData = [];
+    excelSheets.forEach(sheet => {
+        sheet.data.forEach(row => {
+            const mergedRow = { ...row };
+            // Add sheet tag to each row
+            if (sheet.tag) {
+                mergedRow['_SheetTag'] = sheet.tag;
+            }
+            inputData.push(mergedRow);
+        });
+    });
+}
+
+/**
+ * Render sheet tags UI
+ */
+function renderSheetTags() {
+    const container = document.getElementById('sheetTagsContainer');
+    const checkbox = document.getElementById('sheetWiseMappingCheckbox');
+    const sheetSelectorWrapper = document.getElementById('sheetSelectorWrapper');
+    const sheetSelector = document.getElementById('sheetSelector');
+    
+    container.innerHTML = '';
+    
+    // Set up sheet-wise mapping checkbox
+    checkbox.checked = useSheetWiseMapping;
+    checkbox.addEventListener('change', (e) => {
+        useSheetWiseMapping = e.target.checked;
+        
+        if (useSheetWiseMapping) {
+            // Show sheet selector and populate it
+            sheetSelectorWrapper.style.display = 'flex';
+            populateSheetSelector();
+            // Load mapping for first sheet
+            currentSheetIndex = 0;
+            loadSheetMapping(0);
+        } else {
+            // Hide sheet selector and use unified mapping
+            sheetSelectorWrapper.style.display = 'none';
+            // Merge all sheet headers
+            mergeExcelSheets();
+            autoMapFields();
+            renderMapping();
+        }
+        
+        refreshPreview();
+    });
+    
+    excelSheets.forEach((sheet, index) => {
+        const sheetTagRow = document.createElement('div');
+        sheetTagRow.className = 'sheet-tag-row';
+        
+        const sheetLabel = document.createElement('label');
+        sheetLabel.className = 'sheet-label';
+        sheetLabel.textContent = sheet.name;
+        sheetLabel.title = `${sheet.data.length} rows`;
+        
+        const tagInput = document.createElement('input');
+        tagInput.type = 'text';
+        tagInput.className = 'sheet-tag-input';
+        tagInput.value = sheet.tag;
+        tagInput.placeholder = 'Enter tag...';
+        tagInput.dataset.sheetIndex = index;
+        
+        tagInput.addEventListener('input', (e) => {
+            const sheetIdx = parseInt(e.target.dataset.sheetIndex);
+            excelSheets[sheetIdx].tag = e.target.value;
+            // Re-merge data with updated tags
+            mergeExcelSheets();
+            // Refresh preview
+            refreshPreview();
+        });
+        
+        const rowCount = document.createElement('span');
+        rowCount.className = 'sheet-row-count';
+        rowCount.textContent = `${sheet.data.length} rows`;
+
+        // Name options container
+        const nameOptions = document.createElement('div');
+        nameOptions.className = 'sheet-name-options';
+
+        const splitLabel = document.createElement('label');
+        splitLabel.className = 'sheet-option';
+        const splitCheckbox = document.createElement('input');
+        splitCheckbox.type = 'checkbox';
+        splitCheckbox.checked = sheet.nameOptions?.splitFullName ?? true;
+        splitCheckbox.dataset.sheetIndex = index;
+        splitCheckbox.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.sheetIndex);
+            excelSheets[idx].nameOptions = excelSheets[idx].nameOptions || {};
+            excelSheets[idx].nameOptions.splitFullName = e.target.checked;
+            refreshPreview();
+        });
+        splitLabel.appendChild(splitCheckbox);
+        splitLabel.appendChild(document.createTextNode(' Split full name into first/last'));
+
+        const companyLabel = document.createElement('label');
+        companyLabel.className = 'sheet-option';
+        const companyCheckbox = document.createElement('input');
+        companyCheckbox.type = 'checkbox';
+        companyCheckbox.checked = sheet.nameOptions?.fullNameIsCompany ?? false;
+        companyCheckbox.dataset.sheetIndex = index;
+        companyCheckbox.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.sheetIndex);
+            excelSheets[idx].nameOptions = excelSheets[idx].nameOptions || {};
+            excelSheets[idx].nameOptions.fullNameIsCompany = e.target.checked;
+            refreshPreview();
+        });
+        companyLabel.appendChild(companyCheckbox);
+        companyLabel.appendChild(document.createTextNode(' Treat full name as company'));
+
+        nameOptions.appendChild(splitLabel);
+        nameOptions.appendChild(companyLabel);
+
+        sheetTagRow.appendChild(sheetLabel);
+        sheetTagRow.appendChild(tagInput);
+        sheetTagRow.appendChild(nameOptions);
+        sheetTagRow.appendChild(rowCount);
+        container.appendChild(sheetTagRow);
+    });
+}
+
+/**
+ * Populate sheet selector dropdown
+ */
+function populateSheetSelector() {
+    const sheetSelector = document.getElementById('sheetSelector');
+    sheetSelector.innerHTML = '';
+    
+    excelSheets.forEach((sheet, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${sheet.name} (${sheet.data.length} rows)`;
+        sheetSelector.appendChild(option);
+    });
+    
+    sheetSelector.value = currentSheetIndex;
+    
+    // Add change listener
+    sheetSelector.removeEventListener('change', handleSheetSelectionChange);
+    sheetSelector.addEventListener('change', handleSheetSelectionChange);
+}
+
+/**
+ * Handle sheet selection change
+ */
+function handleSheetSelectionChange(e) {
+    const newIndex = parseInt(e.target.value);
+    if (newIndex !== currentSheetIndex) {
+        // Save current sheet's mapping
+        if (useSheetWiseMapping) {
+            excelSheets[currentSheetIndex].mapping = JSON.parse(JSON.stringify(fieldMapping));
+        }
+        
+        // Load new sheet's mapping
+        currentSheetIndex = newIndex;
+        loadSheetMapping(newIndex);
+    }
+}
+
+/**
+ * Load mapping for a specific sheet
+ */
+function loadSheetMapping(sheetIndex) {
+    const sheet = excelSheets[sheetIndex];
+    
+    // Set input headers to this sheet's headers
+    inputHeaders = sheet.headers;
+    
+    // Load this sheet's mapping or auto-map if empty
+    if (Object.keys(sheet.mapping).length > 0) {
+        fieldMapping = JSON.parse(JSON.stringify(sheet.mapping));
+    } else {
+        autoMapFields();
+        sheet.mapping = JSON.parse(JSON.stringify(fieldMapping));
+    }
+    
+    renderMapping();
+    refreshPreview();
 }
 
 function parseCSV(csv) {
@@ -727,8 +1091,30 @@ function parseCSV(csv) {
     mappingSection.style.display = 'block';
     exportSection.style.display = 'block';
 
+    // For CSV, create a single pseudo-sheet to expose name options
+    excelSheets = [{
+        name: currentFile?.name || 'CSV',
+        tag: 'CSV',
+        data: inputData,
+        headers: inputHeaders,
+        mapping: {},
+        nameOptions: { splitFullName: true, fullNameIsCompany: false }
+    }];
+    isMultiSheetExcel = false;
+    renderSheetTags();
+    const sheetTagsSection = document.getElementById('sheetTagsSection');
+    if (sheetTagsSection) sheetTagsSection.style.display = 'block';
+    const sheetMappingOption = document.querySelector('.sheet-mapping-option');
+    if (sheetMappingOption) sheetMappingOption.style.display = 'none';
+
     // Initialize preview after auto-mapping
     initializePreview();
+    
+    // Check for mixed columns and notify user
+    checkAndNotifyMixedColumns();
+    
+    // Check for similar columns that can be consolidated
+    checkAndNotifyConsolidation();
 
     // Hide progress bar after short delay
     setTimeout(hideProgress, 500);
@@ -762,6 +1148,79 @@ function parseCSVLine(line) {
     return values;
 }
 
+/**
+ * Find similar column names that should be consolidated
+ */
+function findSimilarColumns() {
+    const columnGroups = {};
+    
+    // Define column patterns for common field types
+    const patterns = {
+        email: ['email', 'e-mail', 'mail', 'e_mail', 'emailid', 'mailid', 'email_id', 'mail_id', 'e-mail_address', 'emailaddress'],
+        phone: ['phone', 'mobile', 'contact', 'telephone', 'tel', 'cell', 'phonenumber', 'phone_number', 'contact_number', 'contactnumber', 'mobilenumber', 'mobile_number'],
+        name: ['name', 'fullname', 'full_name', 'contactname', 'contact_name', 'personname', 'person_name', 'attendee', 'poc_name', 'pocname'],
+        firstname: ['firstname', 'first_name', 'fname', 'givenname', 'given_name'],
+        lastname: ['lastname', 'last_name', 'lname', 'surname', 'familyname', 'family_name'],
+        organization: ['organization', 'organisation', 'company', 'org', 'business', 'institution', 'club'],
+        address: ['address', 'location', 'street', 'office_address', 'officeaddress', 'business_address', 'businessaddress'],
+        title: ['title', 'designation', 'position', 'jobtitle', 'job_title', 'role'],
+        director: ['director', 'ceo', 'chairman', 'minister', 'head', 'president'],
+        website: ['website', 'web', 'url', 'site', 'webpage', 'web_page'],
+        remarks: ['remarks', 'comments', 'notes', 'details', 'description']
+    };
+    
+    // Group columns by similarity
+    inputHeaders.forEach(header => {
+        const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        for (const [groupName, keywords] of Object.entries(patterns)) {
+            if (keywords.some(keyword => normalized.includes(keyword.replace(/[^a-z0-9]/g, '')))) {
+                if (!columnGroups[groupName]) {
+                    columnGroups[groupName] = [];
+                }
+                columnGroups[groupName].push(header);
+                break; // Only add to first matching group
+            }
+        }
+    });
+    
+    // Filter to only groups with multiple columns
+    const consolidatable = {};
+    Object.keys(columnGroups).forEach(groupName => {
+        if (columnGroups[groupName].length > 1) {
+            consolidatable[groupName] = columnGroups[groupName];
+        }
+    });
+    
+    return consolidatable;
+}
+
+/**
+ * Consolidate data from multiple similar columns into single values
+ */
+function consolidateRowData(row, similarColumns) {
+    const consolidated = { ...row };
+    
+    Object.keys(similarColumns).forEach(groupName => {
+        const columns = similarColumns[groupName];
+        let consolidatedValue = '';
+        
+        // Find first non-empty value from the group of columns
+        for (const col of columns) {
+            const value = row[col];
+            if (value && value.trim()) {
+                consolidatedValue = value.trim();
+                break;
+            }
+        }
+        
+        // Store consolidated value with a special key
+        consolidated[`_consolidated_${groupName}`] = consolidatedValue;
+    });
+    
+    return consolidated;
+}
+
 function autoMapFields() {
     // Save state before auto-mapping (if there are existing mappings)
     if (Object.keys(fieldMapping).length > 0) {
@@ -777,7 +1236,6 @@ function autoMapFields() {
     
     if (hasStudentColumn && parentColumn) {
         // Map Parent column to full name fields
-        const fullNameFields = ['Full Name', 'full_name', 'name', 'Name', 'fn'];
         for (let outputField of outputFields) {
             const normalizedOutput = outputField.toLowerCase().replace(/[_\s]/g, '');
             if (normalizedOutput === 'fullname' || normalizedOutput === 'name' || outputField === 'Full Name') {
@@ -798,15 +1256,46 @@ function autoMapFields() {
         
         const rules = AUTO_MAP_RULES[outputField];
         if (rules) {
+            // Score each input header to find the best match
+            let bestMatch = null;
+            let bestScore = 0;
+            
             for (let inputHeader of inputHeaders) {
                 const normalizedInput = inputHeader.toLowerCase().trim();
-                if (rules.some(rule => normalizedInput === rule || normalizedInput.includes(rule))) {
-                    fieldMapping[outputField] = {
-                        column: inputHeader,
-                        source: 'auto' // Track that this was auto-mapped
-                    };
-                    break;
+                let score = 0;
+                
+                // Exact match gets highest score
+                if (rules.some(rule => normalizedInput === rule)) {
+                    score = 100;
                 }
+                // Partial match gets lower score based on position
+                else if (rules.some(rule => normalizedInput.includes(rule))) {
+                    score = 50;
+                    // Bonus points if the rule appears at the start
+                    if (rules.some(rule => normalizedInput.startsWith(rule))) {
+                        score += 25;
+                    }
+                }
+                // Word boundary match (e.g., "email id" matches "email")
+                else if (rules.some(rule => normalizedInput.split(/[\s_-]+/).includes(rule))) {
+                    score = 40;
+                }
+                
+                // Prioritize simpler column names (fewer words)
+                const wordCount = normalizedInput.split(/[\s_-]+/).length;
+                score -= wordCount * 2;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = inputHeader;
+                }
+            }
+            
+            if (bestMatch && bestScore > 0) {
+                fieldMapping[outputField] = {
+                    column: bestMatch,
+                    source: 'auto'
+                };
             }
         }
     });
@@ -887,6 +1376,12 @@ function renderMapping() {
             } else {
                 delete fieldMapping[outputField];
             }
+            
+            // Save to current sheet if using sheet-wise mapping
+            if (useSheetWiseMapping && excelSheets.length > 0) {
+                excelSheets[currentSheetIndex].mapping = JSON.parse(JSON.stringify(fieldMapping));
+            }
+            
             // Re-render to update badges
             renderMapping();
             // Update preview when mapping changes
@@ -1358,6 +1853,21 @@ function splitFullName(fullName) {
     };
 }
 
+// Heuristic to decide if a name looks like an organization/club/group
+function isOrganizationName(name) {
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    const orgKeywords = [
+        'club', 'group', 'center', 'centre', 'association', 'society', 'institute',
+        'university', 'college', 'school', 'foundation', 'trust', 'council', 'ministry',
+        'department', 'organization', 'organisation', 'office', 'bureau', 'authority',
+        'board', 'committee', 'alliance', 'network',
+        // common brand-like tokens that are not person names
+        'pro', 'robo'
+    ];
+    return orgKeywords.some(k => lower.includes(k));
+}
+
 function detectIndividualEmail(email) {
     if (!email) return false;
     const lower = email.toLowerCase();
@@ -1374,9 +1884,131 @@ function cleanEmail(email) {
     return emailRegex.test(cleaned) ? cleaned : '';
 }
 
+/**
+ * Detect if a value is an email address
+ */
+function isEmail(value) {
+    if (!value || typeof value !== 'string') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value.trim());
+}
+
+/**
+ * Detect if a value is a phone number
+ */
+function isPhoneNumber(value) {
+    if (!value || typeof value !== 'string') return false;
+    const cleaned = value.replace(/[^\d+]/g, '');
+    // Phone number should have at least 10 digits (including country code)
+    return cleaned.length >= 10 && /[\d+]/.test(value);
+}
+
+/**
+ * Analyze columns to detect mixed data types (email/phone)
+ */
+function analyzeMixedColumns() {
+    const columnAnalysis = {};
+    
+    inputHeaders.forEach(header => {
+        let emailCount = 0;
+        let phoneCount = 0;
+        let totalNonEmpty = 0;
+        
+        inputData.forEach(row => {
+            const value = row[header];
+            if (value && value.trim()) {
+                totalNonEmpty++;
+                if (isEmail(value)) {
+                    emailCount++;
+                } else if (isPhoneNumber(value)) {
+                    phoneCount++;
+                }
+            }
+        });
+        
+        // Consider it mixed if it has both emails and phones
+        if (emailCount > 0 && phoneCount > 0) {
+            columnAnalysis[header] = {
+                type: 'mixed',
+                emailCount,
+                phoneCount,
+                totalNonEmpty
+            };
+        }
+    });
+    
+    return columnAnalysis;
+}
+
+/**
+ * Check for mixed columns and notify user
+ */
+function checkAndNotifyMixedColumns() {
+    if (!smartColumnParsingCheckbox.checked) return;
+    
+    const mixedColumns = analyzeMixedColumns();
+    const mixedColumnNames = Object.keys(mixedColumns);
+    
+    if (mixedColumnNames.length > 0) {
+        const columnList = mixedColumnNames.map(col => {
+            const info = mixedColumns[col];
+            return `"${col}" (${info.emailCount} emails, ${info.phoneCount} phones)`;
+        }).join(', ');
+        
+        showNotification(`🔍 Detected ${mixedColumnNames.length} mixed column(s): ${columnList}. Data will be auto-separated.`, 5000);
+    }
+}
+
+/**
+ * Check for consolidatable columns and notify user
+ */
+function checkAndNotifyConsolidation() {
+    if (!consolidateColumnsCheckbox.checked) return;
+    
+    const similarColumns = findSimilarColumns();
+    const groupNames = Object.keys(similarColumns);
+    
+    if (groupNames.length > 0) {
+        const totalColumns = Object.values(similarColumns).reduce((sum, cols) => sum + cols.length, 0);
+        const summary = groupNames.slice(0, 3).map(group => {
+            return `${group} (${similarColumns[group].length} columns)`;
+        }).join(', ');
+        
+        const message = `📊 Detected ${totalColumns} similar columns in ${groupNames.length} groups: ${summary}${groupNames.length > 3 ? '...' : ''}. Data will be consolidated.`;
+        showNotification(message, 6000);
+    }
+}
+
 function cleanPhone(phone) {
     if (!phone) return '';
-    return phone.replace(/[^\d+]/g, '');
+
+    // Extract digit/plus sequences
+    const sequences = phone
+        .split(/[^\d+]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    // If sequences already separated, return joined with space
+    if (sequences.length > 1) {
+        return sequences.map(seq => seq.replace(/[^\d+]/g, '')).filter(Boolean).join(' ');
+    }
+
+    // Handle concatenated long string of digits (e.g., multiple numbers stuck together)
+    const cleaned = phone.replace(/[^\d+]/g, '');
+    if (cleaned.length > 15) {
+        const parts = [];
+        let idx = 0;
+        while (idx < cleaned.length) {
+            // Take chunks of 10-13 digits (common phone lengths with country code)
+            const remaining = cleaned.length - idx;
+            const chunkSize = remaining >= 13 ? 13 : remaining >= 10 ? remaining : remaining;
+            parts.push(cleaned.slice(idx, idx + chunkSize));
+            idx += chunkSize;
+        }
+        return parts.join(' ');
+    }
+
+    return cleaned;
 }
 
 function cleanDateOfBirth(date) {
@@ -1448,22 +2080,112 @@ function transformData() {
     const shouldInferCompany = autoInferCompanyCheckbox.checked;
     const shouldInferTitle = autoInferTitleCheckbox.checked;
     const shouldClassify = classifyContactsCheckbox.checked;
+    const useSmartParsing = smartColumnParsingCheckbox.checked;
+    const useConsolidation = consolidateColumnsCheckbox.checked;
     const duplicateHandling = document.querySelector('input[name="duplicateHandling"]:checked')?.value || 'keep';
     const outputFields = OUTPUT_PROFILES[currentProfile].fields;
 
+    // Analyze columns for mixed data if smart parsing is enabled
+    const mixedColumns = useSmartParsing ? analyzeMixedColumns() : {};
+    
+    // Find similar columns for consolidation
+    const similarColumns = useConsolidation ? findSimilarColumns() : {};
+
     let outputData = inputData.map(inputRow => {
+        // First, consolidate similar columns if enabled
+        const workingRow = useConsolidation ? consolidateRowData(inputRow, similarColumns) : inputRow;
+        
         const outputRow = {};
+        
+        // Determine which mapping to use
+        let currentMapping = fieldMapping;
+        if (useSheetWiseMapping && inputRow._SheetTag) {
+            // Find the sheet for this row and use its mapping
+            const sheet = excelSheets.find(s => s.tag === inputRow._SheetTag);
+            if (sheet && sheet.mapping) {
+                currentMapping = sheet.mapping;
+            }
+        }
 
         outputFields.forEach(field => {
-            const mapping = fieldMapping[field];
+            const mapping = currentMapping[field];
             const inputField = mapping ? mapping.column : null;
-            outputRow[field] = inputField ? inputRow[inputField] || '' : '';
+            let value = inputField ? (workingRow[inputField] || '') : '';
+            
+            // If no value and consolidation is on, try consolidated columns
+            if (!value && useConsolidation) {
+                // Try to find a consolidated column that might match this field
+                const fieldLower = field.toLowerCase();
+                for (const [groupName, consolidatedValue] of Object.entries(workingRow)) {
+                    if (groupName.startsWith('_consolidated_') && consolidatedValue) {
+                        const groupType = groupName.replace('_consolidated_', '');
+                        if (fieldLower.includes(groupType) || groupType.includes(fieldLower.replace(/[^a-z]/g, ''))) {
+                            value = consolidatedValue;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            outputRow[field] = value;
         });
 
+        // Smart column parsing: extract email and phone from mixed columns
+        if (useSmartParsing && Object.keys(mixedColumns).length > 0) {
+            Object.keys(mixedColumns).forEach(mixedColumn => {
+                const value = inputRow[mixedColumn];
+                if (value && value.trim()) {
+                    if (isEmail(value)) {
+                        // It's an email - populate email field if not already filled
+                        if ('EMail' in outputRow && !outputRow['EMail']) {
+                            outputRow['EMail'] = value;
+                        } else if ('Email' in outputRow && !outputRow['Email']) {
+                            outputRow['Email'] = value;
+                        } else if ('email' in outputRow && !outputRow['email']) {
+                            outputRow['email'] = value;
+                        }
+                    } else if (isPhoneNumber(value)) {
+                        // It's a phone number - populate phone field if not already filled
+                        if ('Phone' in outputRow && !outputRow['Phone']) {
+                            outputRow['Phone'] = value;
+                        } else if ('Mobile' in outputRow && !outputRow['Mobile']) {
+                            outputRow['Mobile'] = value;
+                        } else if ('phone' in outputRow && !outputRow['phone']) {
+                            outputRow['phone'] = value;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Determine per-sheet or global name options
+        let nameOptions = { splitFullName: true, fullNameIsCompany: false };
+        if (useSheetWiseMapping && inputRow._SheetTag) {
+            const sheet = excelSheets.find(s => s.tag === inputRow._SheetTag);
+            if (sheet && sheet.nameOptions) nameOptions = sheet.nameOptions;
+        } else if (!useSheetWiseMapping && excelSheets.length > 0) {
+            // Use first sheet's options for single-sheet/CSV flows
+            if (excelSheets[0].nameOptions) nameOptions = excelSheets[0].nameOptions;
+        }
+
         if (!outputRow['First Name'] && !outputRow['Last Name'] && outputRow['Full Name']) {
-            const { firstName, lastName } = splitFullName(outputRow['Full Name']);
-            outputRow['First Name'] = firstName;
-            outputRow['Last Name'] = lastName;
+            const full = outputRow['Full Name'];
+            if (nameOptions.fullNameIsCompany || isOrganizationName(full)) {
+                if ('Company' in outputRow && !outputRow['Company']) outputRow['Company'] = full;
+                if ('Organization' in outputRow && !outputRow['Organization']) outputRow['Organization'] = full;
+            }
+            if (nameOptions.splitFullName && !isOrganizationName(full)) {
+                const { firstName, lastName } = splitFullName(full);
+                outputRow['First Name'] = firstName;
+                outputRow['Last Name'] = lastName;
+            }
+        }
+
+        // If the combined name still looks like an organization/club, ensure it populates company/org fields
+        const combinedName = (outputRow['Full Name'] || `${outputRow['First Name'] || ''} ${outputRow['Last Name'] || ''}`).trim();
+        if (combinedName && (nameOptions.fullNameIsCompany || isOrganizationName(combinedName))) {
+            if ('Company' in outputRow && !outputRow['Company']) outputRow['Company'] = combinedName;
+            if ('Organization' in outputRow && !outputRow['Organization']) outputRow['Organization'] = combinedName;
         }
 
         // Get email field (different profiles use different field names)
@@ -1496,6 +2218,11 @@ function transformData() {
         const rowTags = [];
         if (globalTags) {
             rowTags.push(globalTags);
+        }
+
+        // Add sheet tag if from multi-sheet Excel
+        if (isMultiSheetExcel && inputRow._SheetTag) {
+            rowTags.push(inputRow._SheetTag);
         }
 
         // Contact Classification
