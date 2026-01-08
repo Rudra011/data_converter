@@ -201,6 +201,7 @@ const downloadFilteredBtn = document.getElementById('downloadFiltered');
 const filterMatchCount = document.getElementById('filterMatchCount');
 const filterOutputProfileSelect = document.getElementById('filterOutputProfile');
 const filterExportFormatSelect = document.getElementById('filterExportFormat');
+const builtInTagsContainer = document.getElementById('builtInTags');
 const previewRowCount = document.getElementById('previewRowCount');
 const previewViewMode = document.getElementById('previewViewMode');
 const previewContainer = document.getElementById('previewContainer');
@@ -460,6 +461,11 @@ consolidateColumnsCheckbox.addEventListener('change', refreshPreview);
 document.querySelectorAll('input[name="duplicateHandling"]').forEach(radio => {
     radio.addEventListener('change', refreshPreview);
 });
+
+// Built-in quick tags change
+if (builtInTagsContainer) {
+    builtInTagsContainer.addEventListener('change', refreshPreview);
+}
 
 // Export format change - hide append option for non-CSV formats
 exportFormatSelect.addEventListener('change', (e) => {
@@ -2014,6 +2020,13 @@ function getTransformedPreviewForSheet(sheetIndex, limit = 50) {
         }
         
         if (globalTags) rowTags.push(globalTags);
+
+        // Include built-in quick tags selected in Options
+        const quickTags = getSelectedBuiltInTags();
+        if (quickTags.length) {
+            rowTags.push(quickTags.join(', '));
+        }
+
         if (sheet.tag) rowTags.push(sheet.tag);
         const mergedTags = mergeTags(...rowTags);
         if (!('Tags' in mappedRow)) {
@@ -2914,6 +2927,15 @@ function parseCommaList(str) {
 }
 
 const PREDEFINED_TAGS = ['VIP', 'Event', 'Web', 'Partner', 'Newsletter', 'Trial', 'Customer', 'Lead', 'Prospect', 'Duplicate'];
+// Include built-in quick tags so they appear in Filter list as well
+PREDEFINED_TAGS.push('History', 'Science', 'Culture', 'Communication', 'Promotions');
+
+function getSelectedBuiltInTags() {
+    if (!builtInTagsContainer) return [];
+    return Array.from(builtInTagsContainer.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(cb => cb.value)
+        .filter(Boolean);
+}
 
 function collectTagsFromData(rows) {
     const seen = new Map();
@@ -3140,6 +3162,12 @@ function transformData() {
         
         if (globalTags) {
             rowTags.push(globalTags);
+        }
+
+        // Include built-in quick tags selected in Options
+        const quickTags = getSelectedBuiltInTags();
+        if (quickTags.length) {
+            rowTags.push(quickTags.join(', '));
         }
 
         // Add sheet tag if from multi-sheet Excel
